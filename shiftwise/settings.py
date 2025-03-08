@@ -20,14 +20,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY or len(SECRET_KEY) < 50 or SECRET_KEY.startswith("django-insecure-"):
     raise ImproperlyConfigured(
-        "SECRET_KEY must be set in environment variables with at least 50 characters and not start with 'django-insecure-'."
+        "SECRET_KEY must be set in environment variables with at least 50 characters "
+        "and not start with 'django-insecure-'."
     )
 
-DEBUG = os.getenv("DEBUG", "False") == "True"
+# DEBUG logic
+DEBUG = os.getenv("DEBUG") == "True"
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()]
 
+# If in DEBUG mode, allow localhost and 127.0.0.1
 if DEBUG:
     ALLOWED_HOSTS.extend(["127.0.0.1", "localhost"])
 
@@ -97,11 +100,10 @@ ROOT_URLCONF = "shiftwise.urls"
 SITE_URL = os.getenv("SITE_URL")
 
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
-
-# google_maps_api_key is required for Google Places API integration
 if not GOOGLE_PLACES_API_KEY:
-    raise ImproperlyConfigured("GOOGLE_PLACES_API_KEY must be set in environment variables.")
-
+    raise ImproperlyConfigured(
+        "GOOGLE_PLACES_API_KEY must be set in environment variables."
+    )
 
 TEMPLATES = [
     {
@@ -153,7 +155,7 @@ DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
@@ -198,7 +200,7 @@ MFA_FORMS = {
     "reauthenticate": "allauth.mfa.base.forms.ReauthenticateForm",
     "activate_totp": "allauth.mfa.totp.forms.ActivateTOTPForm",
     "deactivate_totp": "allauth.mfa.totp.forms.DeactivateTOTPForm",
-    "generate_recovery_codes": "allauth.mfa.recovery_codes.forms.GenerateRecoveryCodesForm",
+    "generate_recovery_codes": "allauth.mfa.recovery_codes.forms.GenerateRecoveryCodesForm",  # noqa: E501
 }
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
 MFA_TOTP_PERIOD = 30
@@ -252,9 +254,7 @@ STRIPE_PRICE_IDS = {
 # -----------------------------------------------------------------------------
 
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip() for origin in CSRF_TRUSTED_ORIGINS if origin.strip()
-]
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if origin.strip()]
 
 # -----------------------------------------------------------------------------
 # Logging Configuration
