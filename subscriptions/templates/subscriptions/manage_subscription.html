@@ -1,5 +1,3 @@
-<!-- /workspace/shiftwise/subscriptions/templates/subscriptions/manage_subscription.html -->
-
 {% extends "base.html" %}
 
 {% load static %}
@@ -11,6 +9,12 @@
 {% block content %}
 <div class="container my-5">
     <h2 class="text-center mb-4">Manage Your Subscription</h2>
+
+    {% if error %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+    {% endif %}
 
     {% if has_active_subscription %}
         <div class="card mb-4">
