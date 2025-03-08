@@ -1,9 +1,7 @@
 # /workspace/shiftwise/subscriptions/admin.py
 
 from django.contrib import admin
-
 from .models import Plan, Subscription
-
 
 @admin.register(Plan)
 class PlanAdmin(admin.ModelAdmin):
@@ -40,7 +38,6 @@ class PlanAdmin(admin.ModelAdmin):
         ("Status", {"fields": ("is_active", "is_recommended")}),
     )
 
-
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
     list_display = (
@@ -51,9 +48,15 @@ class SubscriptionAdmin(admin.ModelAdmin):
         "current_period_start",
         "current_period_end",
         "stripe_subscription_id",
+        "agency_stripe_customer_id",  # <-- NEW COLUMN
     )
     list_filter = ("is_active", "is_expired", "plan__name")
-    search_fields = ("agency__name", "plan__name", "stripe_subscription_id")
+    search_fields = (
+        "agency__name",
+        "plan__name",
+        "stripe_subscription_id",
+        "agency__stripe_customer_id",  # <-- SEARCH by Customer ID
+    )
     ordering = ("-current_period_start",)
     readonly_fields = ("created_at", "updated_at")
 
@@ -63,3 +66,11 @@ class SubscriptionAdmin(admin.ModelAdmin):
         ("Billing Period", {"fields": ("current_period_start", "current_period_end")}),
         ("Timestamps", {"fields": ("created_at", "updated_at")}),
     )
+
+    def agency_stripe_customer_id(self, obj):
+        """
+        Display the Agency's stripe_customer_id in the Subscription list.
+        """
+        return obj.agency.stripe_customer_id if obj.agency else None
+
+    agency_stripe_customer_id.short_description = "Agency Customer ID"
