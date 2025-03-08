@@ -852,6 +852,10 @@ class ManageSubscriptionView(
     template_name = "subscriptions/manage_subscription.html"
 
     def get(self, request, *args, **kwargs):
+        """
+        Handles GET requests, performing validation before rendering the template.
+        Redirects to subscription_home if validation fails.
+        """
         user = request.user
 
         try:
@@ -905,6 +909,10 @@ class ManageSubscriptionView(
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        """
+        Prepares the context for the template. Always returns a dictionary,
+        even if errors occur during processing.
+        """
         context = super().get_context_data(**kwargs)
         user = self.request.user
         
