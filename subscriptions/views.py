@@ -141,6 +141,7 @@ class SubscribeView(LoginRequiredMixin, View):
     def process_subscription(self, request, plan_id):
         user = request.user
 
+        # Ensure user has a profile
         try:
             profile = user.profile
         except Profile.DoesNotExist:
@@ -148,12 +149,14 @@ class SubscribeView(LoginRequiredMixin, View):
             logger.error(f"Profile does not exist for user: {user.username}")
             return redirect("accounts:update_profile")
 
+        # Ensure user has an agency
         agency = profile.agency
         if not agency:
             messages.error(request, "Please create an agency before subscribing.")
             logger.error(f"Agency is None for user: {user.username}")
             return redirect("accounts:create_agency")
 
+        # Ensure user is an agency owner
         if not user.groups.filter(name="Agency Owners").exists():
             messages.error(request, "Only agency owners can subscribe.")
             logger.warning(
@@ -161,15 +164,65 @@ class SubscribeView(LoginRequiredMixin, View):
             )
             return redirect("subscriptions:subscription_home")
 
+        # Retrieve the requested plan
         plan = get_object_or_404(Plan, id=plan_id, is_active=True)
 
+        # If there's no Stripe customer ID, create one
         if not agency.stripe_customer_id:
-            messages.error(
-                request, "Stripe customer ID is missing. Please contact support."
-            )
-            logger.error(f"Stripe customer ID is missing for agency: {agency.name}")
-            return redirect("subscriptions:subscription_home")
+            try:
+                customer = create_stripe_customer(agency)
+                agency.stripe_customer_id = customer.id
+                agency.save(update_fields=["stripe_customer_id"])
+                logger.info(f"Created new Stripe customer for agency: {agency.name}")
+            except stripe.error.StripeError as e:
+                messages.error(request, "Failed to create Stripe customer.")
+                logger.exception(f"Stripe error while creating customer: {e}")
+                return redirect("subscriptions:subscription_home")
+            except Exception as e:
+                messages.error(request, "An unexpected error occurred. Please try again.")
+                logger.exception(f"Unexpected error while creating customer: {e}")
+                return redirect("subscriptions:subscription_home")
+        else:
+            # Validate existing Stripe customer
+            try:
+                stripe.Customer.retrieve(agency.stripe_customer_id)
+            except stripe.error.InvalidRequestError:
+                # If Stripe says "No such customer", create a new one
+                logger.warning(
+                    f"Invalid Stripe customer ID for agency: {agency.name}. Creating new customer."
+                )
+                try:
+                    customer = create_stripe_customer(agency)
+                    agency.stripe_customer_id = customer.id
+                    agency.save(update_fields=["stripe_customer_id"])
+                    logger.info(f"Created replacement Stripe customer for agency: {agency.name}")
+                except stripe.error.StripeError as e:
+                    messages.error(request, "Failed to create Stripe customer.")
+                    logger.exception(f"Stripe error while creating replacement customer: {e}")
+                    return redirect("subscriptions:subscription_home")
+                except Exception as e:
+                    messages.error(request, "An unexpected error occurred. Please try again.")
+                    logger.exception(f"Unexpected error while creating replacement customer: {e}")
+                    return redirect("subscriptions:subscription_home")
+            except stripe.error.StripeError as e:
+                messages.error(request, "Failed to retrieve Stripe customer.")
+                logger.exception(f"Stripe error while retrieving customer: {e}")
+                return redirect("subscriptions:subscription_home")
+            except Exception as e:
+                messages.error(request, "An unexpected error occurred. Please try again.")
+                logger.exception(f"Unexpected error while retrieving customer: {e}")
+                return redirect("subscriptions:subscription_home")
 
+        # If an active subscription already exists, redirect to manage
+        if hasattr(agency, "subscription") and agency.subscription.is_active:
+            messages.info(
+                request,
+                "You already have an active subscription. Manage your subscription instead.",
+            )
+            logger.info(f"Agency {agency.name} already has an active subscription.")
+            return redirect("subscriptions:manage_subscription")
+
+        # retrieve the Stripe customer
         try:
             customer = stripe.Customer.retrieve(agency.stripe_customer_id)
             logger.info(
@@ -184,14 +237,7 @@ class SubscribeView(LoginRequiredMixin, View):
             logger.exception(f"Unexpected error while retrieving customer: {e}")
             return redirect("subscriptions:subscription_home")
 
-        if hasattr(agency, "subscription") and agency.subscription.is_active:
-            messages.info(
-                request,
-                "You already have an active subscription. Manage your subscription instead.",
-            )
-            logger.info(f"Agency {agency.name} already has an active subscription.")
-            return redirect("subscriptions:manage_subscription")
-
+        # Create a Stripe Checkout session for the subscription
         try:
             checkout_session = stripe.checkout.Session.create(
                 customer=customer.id,
@@ -805,37 +851,67 @@ class ManageSubscriptionView(
 ):
     template_name = "subscriptions/manage_subscription.html"
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        user = self.request.user
+    def get(self, request, *args, **kwargs):
+        user = request.user
 
         try:
             profile = user.profile
         except Profile.DoesNotExist:
             messages.error(
-                self.request, "User profile does not exist. Please contact support."
+                request, "User profile does not exist. Please contact support."
             )
             logger.error(f"Profile does not exist for user: {user.username}")
-            return context
+            return redirect("subscriptions:subscription_home")
 
         agency = profile.agency
 
         if not agency:
             messages.error(
-                self.request,
+                request,
                 "Your agency information is missing. Please contact support.",
             )
             logger.error(f"Agency is None for user: {user.username}")
-            return context
+            return redirect("subscriptions:subscription_home")
 
-        if not agency.stripe_customer_id:
-            messages.error(
-                self.request, "No Stripe customer ID found. Please contact support."
-            )
-            logger.error(f"Stripe customer ID is missing for agency: {agency.name}")
-            return context
-
+        # Verify and fix Stripe customer ID if needed
         try:
+            if not agency.stripe_customer_id:
+                # Create a new Stripe customer
+                customer = create_stripe_customer(agency)
+                agency.stripe_customer_id = customer.id
+                agency.save(update_fields=["stripe_customer_id"])
+                logger.info(f"Created new Stripe customer for agency: {agency.name}")
+            else:
+                # Verify existing customer
+                try:
+                    stripe.Customer.retrieve(agency.stripe_customer_id)
+                except stripe.error.InvalidRequestError:
+                    # Customer doesn't exist in Stripe, create a new one
+                    logger.warning(f"Invalid Stripe customer ID for agency: {agency.name}. Creating new customer.")
+                    customer = create_stripe_customer(agency)
+                    agency.stripe_customer_id = customer.id
+                    agency.save(update_fields=["stripe_customer_id"])
+                    logger.info(f"Created replacement Stripe customer for agency: {agency.name}")
+        except stripe.error.StripeError as e:
+            messages.error(request, "Unable to verify Stripe customer. Please try again later.")
+            logger.exception(f"Stripe error while verifying customer: {e}")
+            return redirect("subscriptions:subscription_home")
+        except Exception as e:
+            messages.error(request, "An unexpected error occurred. Please try again.")
+            logger.exception(f"Unexpected error during customer verification: {e}")
+            return redirect("subscriptions:subscription_home")
+
+        # Proceed with the template view
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        try:
+            profile = user.profile
+            agency = profile.agency
+
             # Fetch subscription from local database
             try:
                 subscription = agency.subscription
@@ -845,56 +921,69 @@ class ManageSubscriptionView(
                     and subscription.current_period_end > timezone.now()
                 ):
                     context["subscription"] = subscription
+                    context["has_active_subscription"] = True
+                    context["current_plan"] = subscription.plan
                 else:
                     context["subscription"] = None
+                    context["has_active_subscription"] = False
+                    context["current_plan"] = None
             except Subscription.DoesNotExist:
                 context["subscription"] = None
+                context["has_active_subscription"] = False
+                context["current_plan"] = None
                 logger.warning(f"No active subscription for agency: {agency.name}")
 
-            # Fetch subscriptions from Stripe
-            subscriptions = stripe.Subscription.list(
-                customer=agency.stripe_customer_id, limit=10
-            )
-            context["subscriptions"] = subscriptions
-
-            # Generate Billing Portal session link
-            billing_portal_session = stripe.billing_portal.Session.create(
-                customer=agency.stripe_customer_id,
-                return_url=self.request.build_absolute_uri(
-                    reverse("subscriptions:manage_subscription")
-                ),
-            )
-            context["billing_portal_url"] = billing_portal_session.url
-
-            # Determine available plans for upgrade and downgrade
-            if subscription and subscription.is_active:
-                current_plan = subscription.plan
-                # For upgrade: plans with higher price
-                upgrade_plans = Plan.objects.filter(
-                    price__gt=current_plan.price, is_active=True
-                ).order_by("price")
-                # For downgrade: plans with lower price
-                downgrade_plans = Plan.objects.filter(
-                    price__lt=current_plan.price, is_active=True
-                ).order_by("-price")
-                context["upgrade_plans"] = upgrade_plans
-                context["downgrade_plans"] = downgrade_plans
-            else:
-                context["upgrade_plans"] = Plan.objects.filter(is_active=True).order_by(
-                    "price"
+            try:
+                # Fetch subscriptions from Stripe
+                subscriptions = stripe.Subscription.list(
+                    customer=agency.stripe_customer_id, limit=10
                 )
-                context["downgrade_plans"] = []
+                context["subscriptions"] = subscriptions
 
-        except stripe.error.StripeError as e:
-            messages.error(self.request, "Unable to retrieve subscription details.")
-            logger.exception(f"Stripe error while retrieving subscriptions: {e}")
-            return redirect("subscriptions:subscription_home")
+                # Generate Billing Portal session link
+                billing_portal_session = stripe.billing_portal.Session.create(
+                    customer=agency.stripe_customer_id,
+                    return_url=self.request.build_absolute_uri(
+                        reverse("subscriptions:manage_subscription")
+                    ),
+                )
+                context["billing_portal_url"] = billing_portal_session.url
+
+                # Determine available plans for upgrade and downgrade
+                if subscription and subscription.is_active:
+                    current_plan = subscription.plan
+                    # For upgrade: plans with higher price
+                    upgrade_plans = Plan.objects.filter(
+                        price__gt=current_plan.price, is_active=True
+                    ).order_by("price")
+                    # For downgrade: plans with lower price
+                    downgrade_plans = Plan.objects.filter(
+                        price__lt=current_plan.price, is_active=True
+                    ).order_by("-price")
+                    context["upgrade_plans"] = upgrade_plans
+                    context["downgrade_plans"] = downgrade_plans
+                else:
+                    context["upgrade_plans"] = Plan.objects.filter(is_active=True).order_by(
+                        "price"
+                    )
+                    context["downgrade_plans"] = []
+            except stripe.error.StripeError as e:
+                logger.exception(f"Stripe error while retrieving subscription details: {e}")
+                context["error"] = "Unable to retrieve subscription details."
+                context["has_active_subscription"] = False
+            except Exception as e:
+                logger.exception(f"Unexpected error while retrieving subscription details: {e}")
+                context["error"] = "An unexpected error occurred. Please try again."
+                context["has_active_subscription"] = False
+
+        except Profile.DoesNotExist:
+            logger.error(f"Profile does not exist for user: {user.username}")
+            context["error"] = "User profile does not exist. Please contact support."
+            context["has_active_subscription"] = False
         except Exception as e:
-            messages.error(
-                self.request, "An unexpected error occurred. Please try again."
-            )
-            logger.exception(f"Unexpected error while retrieving subscriptions: {e}")
-            return redirect("subscriptions:subscription_home")
+            logger.exception(f"Unexpected error in context preparation: {e}")
+            context["error"] = "An unexpected error occurred. Please try again."
+            context["has_active_subscription"] = False
 
         return context
 
@@ -921,14 +1010,27 @@ class UpdatePaymentMethodView(LoginRequiredMixin, AgencyOwnerRequiredMixin, View
             logger.error(f"Agency is None for user: {user.username}")
             return redirect("subscriptions:subscription_home")
 
-        if not agency.stripe_customer_id:
-            messages.error(
-                request, "No Stripe customer ID found. Please contact support."
-            )
-            logger.error(f"Stripe customer ID is missing for agency: {agency.name}")
-            return redirect("subscriptions:subscription_home")
-
+        # Verify Stripe customer and create if missing
         try:
+            if not agency.stripe_customer_id:
+                # Create a new Stripe customer
+                customer = create_stripe_customer(agency)
+                agency.stripe_customer_id = customer.id
+                agency.save(update_fields=["stripe_customer_id"])
+                logger.info(f"Created new Stripe customer for agency: {agency.name}")
+            else:
+                # Verify existing customer
+                try:
+                    stripe.Customer.retrieve(agency.stripe_customer_id)
+                except stripe.error.InvalidRequestError:
+                    # Customer doesn't exist in Stripe, create a new one
+                    logger.warning(f"Invalid Stripe customer ID for agency: {agency.name}. Creating new customer.")
+                    customer = create_stripe_customer(agency)
+                    agency.stripe_customer_id = customer.id
+                    agency.save(update_fields=["stripe_customer_id"])
+                    logger.info(f"Created replacement Stripe customer for agency: {agency.name}")
+
+            # Create the billing portal session
             session = stripe.billing_portal.Session.create(
                 customer=agency.stripe_customer_id,
                 return_url=self.request.build_absolute_uri(
@@ -940,12 +1042,12 @@ class UpdatePaymentMethodView(LoginRequiredMixin, AgencyOwnerRequiredMixin, View
             )
             return redirect(session.url)
         except stripe.error.StripeError as e:
-            messages.error(request, "Unable to redirect to Billing Portal.")
-            logger.exception(f"Stripe error while creating Billing Portal session: {e}")
+            messages.error(request, f"Unable to access Stripe Billing Portal: {str(e)}")
+            logger.exception(f"Stripe error while handling payment method update: {e}")
             return redirect("subscriptions:subscription_home")
         except Exception as e:
             messages.error(request, "An unexpected error occurred. Please try again.")
             logger.exception(
-                f"Unexpected error while creating Billing Portal session: {e}"
+                f"Unexpected error while updating payment method: {e}"
             )
             return redirect("subscriptions:subscription_home")
