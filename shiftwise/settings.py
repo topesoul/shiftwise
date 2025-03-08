@@ -26,8 +26,10 @@ if not SECRET_KEY or len(SECRET_KEY) < 50 or SECRET_KEY.startswith("django-insec
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
-if not ALLOWED_HOSTS or ALLOWED_HOSTS == [""]:
-    raise ImproperlyConfigured("ALLOWED_HOSTS must be set in environment variables.")
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()]
+
+if DEBUG:
+    ALLOWED_HOSTS.extend(["127.0.0.1", "localhost"])
 
 FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY")
 if not FIELD_ENCRYPTION_KEY:
