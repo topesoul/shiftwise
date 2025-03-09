@@ -11,124 +11,179 @@
 {% block content %}
 <div class="container my-5">
     <h2 class="text-center mb-4">{{ form_title }}</h2>
+    
+    {% if current_subscription %}
+        <div class="alert alert-info">
+            <p>Your current plan: <strong>{{ current_subscription.plan.name }} ({{ current_subscription.plan.get_billing_cycle_display }})</strong> - £{{ current_subscription.plan.price|floatformat:2 }}/{{ current_subscription.plan.billing_cycle }}</p>
+        </div>
+    {% endif %}
 
-    <form method="post">
-        {% csrf_token %}
+    {% if error %}
+        <div class="alert alert-danger">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <!-- Plans with the same billing cycle -->
+    {% if same_cycle_plans %}
+        <h3>Same Billing Cycle Options ({{ current_billing_cycle|title }})</h3>
         <div class="row">
-            {% for plan_group in available_plans %}
+            {% for plan in same_cycle_plans %}
                 <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card h-100 shadow-sm position-relative subscription-card">
+                    <div class="card h-100 shadow-sm position-relative subscription-card {% if current_subscription.plan.id == plan.id %}border border-primary border-3{% endif %}">
+                        <!-- Highlight current plan -->
+                        {% if current_subscription.plan.id == plan.id %}
+                            <span class="badge bg-primary position-absolute top-0 start-0 m-2">Current Plan</span>
+                        {% endif %}
+                        
                         <!-- Highlight Most Popular Plan -->
-                        {% if plan_group.name == "Pro" %}
-                            <span class="badge bg-warning text-dark position-absolute top-0 end-0 m-2">Most Popular</span>
+                        {% if plan.is_recommended %}
+                            <span class="badge bg-warning text-dark position-absolute top-0 end-0 m-2">Recommended</span>
                         {% endif %}
 
                         <div class="card-header text-center bg-primary text-white">
-                            <h4 class="my-0 font-weight-bold">{{ plan_group.name }}</h4>
-                            <small>{{ plan_group.description }}</small>
+                            <h4 class="my-0 font-weight-bold">{{ plan.name }}</h4>
+                            <span>{{ plan.get_billing_cycle_display }}</span>
                         </div>
                         <div class="card-body d-flex flex-column">
                             <!-- Pricing Display -->
                             <h2 class="card-title pricing-card-title text-center">
-                                £<span class="price-value"
-                                    data-monthly-price="{% if plan_group.monthly_plan %}{{ plan_group.monthly_plan.price }}{% else %}{{ '' }}{% endif %}"
-                                    data-yearly-price="{% if plan_group.yearly_plan %}{{ plan_group.yearly_plan.price }}{% else %}{{ '' }}{% endif %}">
-                                    {% if plan_group.monthly_plan %}
-                                        {{ plan_group.monthly_plan.price }}
-                                    {% elif plan_group.yearly_plan %}
-                                        {{ plan_group.yearly_plan.price }}
-                                    {% else %}
-                                        N/A
-                                    {% endif %}
-                                </span>
-                                <small class="text-muted">
-                                    {% if plan_group.monthly_plan and plan_group.yearly_plan %}
-                                        /mo or /yr
-                                    {% elif plan_group.monthly_plan %}
-                                        /mo
-                                    {% elif plan_group.yearly_plan %}
-                                        /yr
-                                    {% else %}
-                                        /n/a
-                                    {% endif %}
-                                </small>
+                                £{{ plan.price|floatformat:2 }}
+                                <small class="text-muted">/{{ plan.billing_cycle }}</small>
                             </h2>
 
-                            <!-- Features List and Subscribe Button within the Same Context -->
-                            {% with selected_plan=plan_group.monthly_plan|default:plan_group.yearly_plan %}
-                                <ul class="list-unstyled mt-3 mb-4 features-list">
-                                    {% if selected_plan %}
-                                        {% for feature_field, feature_display in all_features %}
-                                            <li class="feature-item">
-                                                {% if selected_plan|attr:feature_field %}
-                                                    <i class="fas fa-check-circle text-success"></i> {{ feature_display }}
-                                                {% else %}
-                                                    <i class="fas fa-times-circle text-danger"></i> {{ feature_display }}
-                                                {% endif %}
-                                            </li>
-                                        {% endfor %}
-                                        <!-- Shift Limit Display -->
-                                        <li class="feature-item">
-                                            {% if selected_plan.shift_limit %}
-                                                <i class="fas fa-check-circle text-success"></i>
-                                                {{ selected_plan.shift_limit }} Shifts per Month
-                                            {% else %}
-                                                <i class="fas fa-check-circle text-success"></i>
-                                                Unlimited Shifts
-                                            {% endif %}
-                                        </li>
-                                    {% else %}
-                                        <li class="feature-item">No features available.</li>
-                                    {% endif %}
-                                </ul>
+                            <!-- Description -->
+                            <p class="text-center mb-3">{{ plan.description }}</p>
 
-                                <!-- Subscribe Button -->
-                                <div class="mt-auto">
-                                    {% if selected_plan %}
-                                        {% if has_active_subscription %}
-                                            {% if current_plan.price < selected_plan.price %}
-                                                <form method="post" action="{% url 'subscriptions:upgrade_subscription' selected_plan.id %}">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="btn btn-success btn-block subscribe-button">
-                                                        <i class="fas fa-arrow-up"></i> Upgrade to {{ selected_plan.name }}
-                                                    </button>
-                                                </form>
-                                            {% elif current_plan.price > selected_plan.price %}
-                                                <form method="post" action="{% url 'subscriptions:downgrade_subscription' selected_plan.id %}">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="btn btn-warning btn-block subscribe-button">
-                                                        <i class="fas fa-arrow-down"></i> Downgrade to {{ selected_plan.name }}
-                                                    </button>
-                                                </form>
-                                            {% else %}
-                                                <button class="btn btn-secondary btn-block subscribe-button" disabled>
-                                                    <i class="fas fa-check-circle"></i> Current Plan
-                                                </button>
-                                            {% endif %}
+                            <!-- Features List -->
+                            <ul class="list-unstyled mt-3 mb-4 features-list">
+                                {% for feature_field, feature_display in all_features %}
+                                    <li class="feature-item">
+                                        {% if plan|attr:feature_field %}
+                                            <i class="fas fa-check-circle text-success"></i> {{ feature_display }}
                                         {% else %}
-                                            <form method="post" action="{% url 'subscriptions:subscribe' selected_plan.id %}">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-primary btn-block subscribe-button">
-                                                    <i class="fas fa-shopping-cart"></i> Subscribe to {{ selected_plan.name }}
-                                                </button>
-                                            </form>
+                                            <i class="fas fa-times-circle text-danger"></i> {{ feature_display }}
                                         {% endif %}
+                                    </li>
+                                {% endfor %}
+                                <!-- Shift Limit Display -->
+                                <li class="feature-item">
+                                    {% if plan.shift_limit %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        {{ plan.shift_limit }} Shifts per Month
                                     {% else %}
-                                        <a href="#" class="btn btn-primary btn-block subscribe-button disabled">
-                                            <i class="fas fa-shopping-cart"></i> Subscribe
-                                        </a>
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        Unlimited Shifts
                                     {% endif %}
-                                </div>
-                            {% endwith %}
+                                </li>
+                            </ul>
+
+                            <!-- Plan Action Button -->
+                            <div class="mt-auto">
+                                {% if current_subscription.plan.id != plan.id %}
+                                    <form method="post" action="{% if current_subscription.plan.price < plan.price %}{% url 'subscriptions:upgrade_subscription' plan.id %}{% else %}{% url 'subscriptions:downgrade_subscription' plan.id %}{% endif %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn {% if current_subscription.plan.price < plan.price %}btn-success{% else %}btn-warning{% endif %} btn-block">
+                                            <i class="fas fa-{% if current_subscription.plan.price < plan.price %}arrow-up{% else %}arrow-down{% endif %}"></i> 
+                                            {% if current_subscription.plan.price < plan.price %}Upgrade to{% else %}Downgrade to{% endif %} {{ plan.name }}
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <button disabled class="btn btn-secondary btn-block">
+                                        <i class="fas fa-check"></i> Current Plan
+                                    </button>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
-            {% empty %}
-                <div class="col-12">
-                    <p class="text-center">No subscription plans available at the moment.</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Plans with different billing cycle -->
+    {% if diff_cycle_plans %}
+        <h3 class="mt-4">Different Billing Cycle Options</h3>
+        <div class="row">
+            {% for plan in diff_cycle_plans %}
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm position-relative subscription-card">
+                        <!-- Highlight Most Popular Plan -->
+                        {% if plan.is_recommended %}
+                            <span class="badge bg-warning text-dark position-absolute top-0 end-0 m-2">Recommended</span>
+                        {% endif %}
+
+                        <div class="card-header text-center {% if plan.billing_cycle == 'yearly' %}bg-success{% else %}bg-info{% endif %} text-white">
+                            <h4 class="my-0 font-weight-bold">{{ plan.name }}</h4>
+                            <span>{{ plan.get_billing_cycle_display }}</span>
+                        </div>
+                        <div class="card-body d-flex flex-column">
+                            <!-- Pricing Display -->
+                            <h2 class="card-title pricing-card-title text-center">
+                                £{{ plan.price|floatformat:2 }}
+                                <small class="text-muted">/{{ plan.billing_cycle }}</small>
+                            </h2>
+
+                            <!-- Description -->
+                            <p class="text-center mb-3">{{ plan.description }}</p>
+
+                            <!-- Features List -->
+                            <ul class="list-unstyled mt-3 mb-4 features-list">
+                                {% for feature_field, feature_display in all_features %}
+                                    <li class="feature-item">
+                                        {% if plan|attr:feature_field %}
+                                            <i class="fas fa-check-circle text-success"></i> {{ feature_display }}
+                                        {% else %}
+                                            <i class="fas fa-times-circle text-danger"></i> {{ feature_display }}
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                                <!-- Shift Limit Display -->
+                                <li class="feature-item">
+                                    {% if plan.shift_limit %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        {{ plan.shift_limit }} Shifts per Month
+                                    {% else %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        Unlimited Shifts
+                                    {% endif %}
+                                </li>
+                            </ul>
+
+                            <!-- Plan Action Button with Warning -->
+                            <div class="mt-auto">
+                                <div class="alert alert-warning small">
+                                    <i class="fas fa-info-circle"></i> This changes your billing cycle from {{ current_billing_cycle }} to {{ plan.billing_cycle }}.
+                                </div>
+                                <form method="post" action="{% url 'subscriptions:upgrade_subscription' plan.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-primary btn-block">
+                                        Switch to {{ plan.billing_cycle|title }} Billing
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             {% endfor %}
         </div>
-    </form>
+    {% endif %}
+    
+    {% if not same_cycle_plans and not diff_cycle_plans %}
+        <div class="alert alert-info">
+            <p>No available plan options found for your current subscription.</p>
+        </div>
+    {% endif %}
+    
+    <div class="text-center mt-4">
+        <a href="{% url 'subscriptions:manage_subscription' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Subscription Management
+        </a>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Custom JS for handling subscription changes and UI interactions -->
+<script src="{% static 'js/billing.js' %}"></script>
 {% endblock %}
