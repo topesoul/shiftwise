@@ -1,5 +1,6 @@
 <!-- /workspace/shiftwise/shifts/templates/includes/navbar.html -->
 
+{% load static %}
 {% load custom_filters %}
 {% load custom_tags %}
 
@@ -95,21 +96,32 @@
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="subscriptionDropdown" role="button" data-toggle="dropdown"
             aria-haspopup="true" aria-expanded="false" aria-label="Subscriptions Dropdown">
-            <i class="fas fa-subscript"></i> Subscriptions
+            <i class="fas fa-credit-card"></i> Subscriptions
           </a>
           <div class="dropdown-menu" aria-labelledby="subscriptionDropdown">
-            {% if subscription and subscription.is_active %}
-            <a class="dropdown-item" href="{% url 'subscriptions:manage_subscription' %}"
-              aria-label="Manage Subscription">
+            <!-- Available subscription plans -->
+            <a class="dropdown-item" href="{% url 'subscriptions:subscription_home' %}" aria-label="Subscription Plans">
+              <i class="fas fa-list"></i> Subscription Plans
+            </a>
+            
+            {% if has_active_subscription %}
+            <a class="dropdown-item" href="{% url 'subscriptions:manage_subscription' %}" aria-label="Manage Subscription">
               <i class="fas fa-cogs"></i> Manage Subscription
             </a>
-            <a class="dropdown-item" href="{% url 'subscriptions:cancel_subscription' %}"
-              aria-label="Cancel Subscription">
+            <a class="dropdown-item" href="{% url 'subscriptions:update_payment_method' %}" aria-label="Update Payment Method">
+              <i class="fas fa-credit-card"></i> Update Payment
+            </a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item text-danger" href="#" 
+               onclick="if(confirm('Are you sure you want to cancel your subscription?')) document.getElementById('cancel-subscription-form').submit(); return false;">
               <i class="fas fa-ban"></i> Cancel Subscription
             </a>
+            <form id="cancel-subscription-form" action="{% url 'subscriptions:cancel_subscription' %}" method="post" style="display: none;">
+              {% csrf_token %}
+            </form>
             {% else %}
             <a class="dropdown-item" href="{% url 'subscriptions:subscription_home' %}" aria-label="Subscribe">
-              <i class="fas fa-shopping-cart"></i> Subscribe
+              <i class="fas fa-shopping-cart"></i> Subscribe Now
             </a>
             {% endif %}
           </div>
