@@ -712,7 +712,7 @@ class SubscriptionChangeView(
             agency = profile.agency
             subscription = agency.subscription
 
-            # Validate subscription status
+            # Verify subscription status locally and with Stripe
             if not subscription.is_active:
                 messages.error(
                     self.request, "Your subscription is not active and cannot be modified."
@@ -723,7 +723,6 @@ class SubscriptionChangeView(
                 context["available_plans"] = []
                 return context
 
-            # Verify subscription status with Stripe
             stripe_subscription = stripe.Subscription.retrieve(
                 subscription.stripe_subscription_id
             )
@@ -736,6 +735,7 @@ class SubscriptionChangeView(
                     f"User {user.username} attempted to modify a Stripe subscription with status {stripe_subscription['status']}."
                 )
 
+                # Sync local status with Stripe
                 subscription.is_active = False
                 subscription.status = stripe_subscription["status"]
                 subscription.save()
@@ -745,7 +745,7 @@ class SubscriptionChangeView(
 
             current_billing_cycle = subscription.plan.billing_cycle
             
-            # Configure available plans based on change type
+            # Set plan filtering logic based on change type
             if self.change_type == "upgrade":
                 filtered_plans = Plan.objects.filter(
                     price__gt=subscription.plan.price, is_active=True
@@ -753,9 +753,23 @@ class SubscriptionChangeView(
                 form_title = "Upgrade Your Subscription"
                 button_label = "Upgrade Subscription"
             elif self.change_type == "downgrade":
-                filtered_plans = Plan.objects.filter(
-                    price__lt=subscription.plan.price, is_active=True
-                ).order_by("billing_cycle", "-price")
+                # For downgrades: show only next tier down plans
+                current_price = subscription.plan.price
+                lower_priced_plans = Plan.objects.filter(
+                    price__lt=current_price, is_active=True
+                ).order_by("-price")
+                
+                # Group by billing cycle
+                monthly_plans = lower_priced_plans.filter(billing_cycle="monthly")
+                yearly_plans = lower_priced_plans.filter(billing_cycle="yearly")
+                
+                # Get the highest priced plan in each billing cycle (next tier down)
+                filtered_plans = []
+                if monthly_plans.exists():
+                    filtered_plans.append(monthly_plans.first())
+                if yearly_plans.exists():
+                    filtered_plans.append(yearly_plans.first())
+                    
                 form_title = "Downgrade Your Subscription"
                 button_label = "Downgrade Subscription"
             else:
@@ -763,15 +777,25 @@ class SubscriptionChangeView(
                 form_title = "Change Subscription"
                 button_label = "Change Subscription"
 
-            # Organize plans by billing cycle
+            # Separate plans by billing cycle
             same_cycle_plans = []
             diff_cycle_plans = []
             
             for plan in filtered_plans:
                 if plan.billing_cycle == current_billing_cycle:
                     same_cycle_plans.append(plan)
-                else:
+                elif plan.name == subscription.plan.name:
+                    # Only include different cycle plans of the same tier
                     diff_cycle_plans.append(plan)
+
+            # Include current plan for comparison
+            if not any(plan.id == subscription.plan.id for plan in same_cycle_plans):
+                same_cycle_plans.append(subscription.plan)
+            
+            # Sort plans by price
+            same_cycle_plans = sorted(same_cycle_plans, 
+                                    key=lambda p: p.price,
+                                    reverse=(self.change_type == "downgrade"))
 
             context["same_cycle_plans"] = same_cycle_plans
             context["diff_cycle_plans"] = diff_cycle_plans
@@ -779,6 +803,7 @@ class SubscriptionChangeView(
             context["button_label"] = button_label
             context["current_subscription"] = subscription
             context["current_billing_cycle"] = current_billing_cycle
+            context["change_type"] = self.change_type
 
         except Profile.DoesNotExist:
             messages.error(
