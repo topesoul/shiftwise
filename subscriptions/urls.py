@@ -6,6 +6,7 @@ from .views import (
     SubscribeView,
     subscription_success,
     subscription_cancel,
+    subscription_change_success,
     StripeWebhookView,
     UpgradeSubscriptionView,
     DowngradeSubscriptionView,
@@ -25,6 +26,7 @@ urlpatterns = [
     path('upgrade/<int:plan_id>/', UpgradeSubscriptionView.as_view(), name='upgrade_subscription'),
     path('downgrade/<int:plan_id>/', DowngradeSubscriptionView.as_view(), name='downgrade_subscription'),
     path('cancel/', CancelSubscriptionView.as_view(), name='cancel_subscription'),
+    path('subscription-change-success/', subscription_change_success, name='subscription_change_success'),
     path('manage/', ManageSubscriptionView.as_view(), name='manage_subscription'),
     path('update_payment_method/', UpdatePaymentMethodView.as_view(), name='update_payment_method'),
 ]
