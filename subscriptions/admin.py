@@ -5,6 +5,7 @@ from .models import Plan, Subscription
 
 @admin.register(Plan)
 class PlanAdmin(admin.ModelAdmin):
+    # Fields shown in the list view
     list_display = (
         "name",
         "billing_cycle",
@@ -13,17 +14,21 @@ class PlanAdmin(admin.ModelAdmin):
         "is_active",
         "is_recommended",
     )
+    # Filter options in the sidebar
     list_filter = ("name", "billing_cycle", "is_active", "is_recommended")
+    # Search functionality fields
     search_fields = ("name", "stripe_product_id", "stripe_price_id", "description")
+    # Default ordering
     ordering = ("name", "billing_cycle")
+    # Form organization
     fieldsets = (
         (
-            None,
+            "Basic Information",
             {"fields": ("name", "billing_cycle", "description", "price", "view_limit")},
         ),
         ("Stripe Integration", {"fields": ("stripe_product_id", "stripe_price_id")}),
         (
-            "Features",
+            "Plan Features",
             {
                 "fields": (
                     "notifications_enabled",
@@ -40,6 +45,7 @@ class PlanAdmin(admin.ModelAdmin):
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
+    # Fields shown in the list view
     list_display = (
         "agency",
         "plan",
@@ -48,20 +54,24 @@ class SubscriptionAdmin(admin.ModelAdmin):
         "current_period_start",
         "current_period_end",
         "stripe_subscription_id",
-        "agency_stripe_customer_id",  # <-- NEW COLUMN
+        "agency_stripe_customer_id",
     )
+    # Filter options in the sidebar
     list_filter = ("is_active", "is_expired", "plan__name")
+    # Search functionality fields
     search_fields = (
         "agency__name",
         "plan__name",
         "stripe_subscription_id",
-        "agency__stripe_customer_id",  # <-- SEARCH by Customer ID
+        "agency__stripe_customer_id",
     )
+    # Default ordering - newest subscriptions first
     ordering = ("-current_period_start",)
+    # Fields that cannot be edited
     readonly_fields = ("created_at", "updated_at")
 
     fieldsets = (
-        (None, {"fields": ("agency", "plan", "stripe_subscription_id")}),
+        ("Subscription Details", {"fields": ("agency", "plan", "stripe_subscription_id")}),
         ("Status", {"fields": ("is_active", "is_expired")}),
         ("Billing Period", {"fields": ("current_period_start", "current_period_end")}),
         ("Timestamps", {"fields": ("created_at", "updated_at")}),
@@ -69,7 +79,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
 
     def agency_stripe_customer_id(self, obj):
         """
-        Display the Agency's stripe_customer_id in the Subscription list.
+        Shows the agency's Stripe customer ID in the admin list view
         """
         return obj.agency.stripe_customer_id if obj.agency else None
 
