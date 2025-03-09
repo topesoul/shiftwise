@@ -271,6 +271,66 @@ class SubscribeView(LoginRequiredMixin, View):
 
 
 def subscription_success(request):
+    """Handle successful subscription. This acts as a backup to the webhook."""
+    user = request.user
+    
+    if user.is_authenticated:
+        try:
+            profile = user.profile
+            agency = profile.agency
+            
+            # Get the most recent active subscription from Stripe
+            if agency.stripe_customer_id:
+                subscriptions = stripe.Subscription.list(
+                    customer=agency.stripe_customer_id,
+                    status="active",
+                    limit=1
+                )
+                
+                if subscriptions.data:
+                    stripe_sub = subscriptions.data[0]
+                    plan_id = stripe_sub["items"]["data"][0]["price"]["id"]
+                    
+                    try:
+                        plan = Plan.objects.get(stripe_price_id=plan_id)
+                        
+                        current_period_start = datetime.fromtimestamp(
+                            stripe_sub.current_period_start, tz=datetime_timezone.utc
+                        )
+                        current_period_end = datetime.fromtimestamp(
+                            stripe_sub.current_period_end, tz=datetime_timezone.utc
+                        )
+                        
+                        # Update or create the subscription record
+                        try:
+                            subscription = agency.subscription
+                            subscription.plan = plan
+                            subscription.stripe_subscription_id = stripe_sub.id
+                            subscription.is_active = True
+                            subscription.status = stripe_sub.status
+                            subscription.current_period_start = current_period_start
+                            subscription.current_period_end = current_period_end
+                            subscription.is_expired = False
+                            subscription.save()
+                            logger.info(f"Updated subscription in success page for {agency.name}")
+                        except Subscription.DoesNotExist:
+                            subscription = Subscription.objects.create(
+                                agency=agency,
+                                plan=plan,
+                                stripe_subscription_id=stripe_sub.id,
+                                is_active=True,
+                                status=stripe_sub.status,
+                                current_period_start=current_period_start,
+                                current_period_end=current_period_end,
+                                is_expired=False,
+                            )
+                            logger.info(f"Created new subscription in success page for {agency.name}")
+                    except Plan.DoesNotExist:
+                        logger.error(f"Plan with price ID {plan_id} does not exist.")
+                
+        except Exception as e:
+            logger.exception(f"Error updating subscription in success page: {e}")
+    
     messages.success(request, "Your subscription was successful!")
     return render(request, "subscriptions/success.html")
 
@@ -305,20 +365,28 @@ class StripeWebhookView(View):
         event_type = event.get("type")
         event_data = event.get("data", {}).get("object", {})
 
+        # Log detailed information about incoming webhook events for troubleshooting
+        logger.info(f"Processing webhook event: {event_type}")
+        logger.debug(f"Event data: {event_data}")
+
         if event_type == "checkout.session.completed":
             self.handle_checkout_session_completed(event_data)
+            return HttpResponse(status=200)
         elif event_type == "invoice.payment_succeeded":
             self.handle_invoice_paid(event_data)
+            return HttpResponse(status=200)
         elif event_type == "customer.subscription.deleted":
             self.handle_subscription_deleted(event_data)
+            return HttpResponse(status=200)
         elif event_type == "customer.subscription.updated":
             self.handle_subscription_updated(event_data)
+            return HttpResponse(status=200)
         elif event_type == "customer.subscription.created":
             self.handle_subscription_created(event_data)
+            return HttpResponse(status=200)
         else:
             logger.info(f"Unhandled event type: {event_type}")
-
-        return HttpResponse(status=200)
+            return HttpResponse(status=200)
 
     def handle_invoice_paid(self, invoice):
         """
@@ -572,7 +640,7 @@ class SubscriptionChangeView(
             # Check if subscription is active in local DB
             if not subscription.is_active:
                 messages.error(
-                    request, "Your subscription is not active and cannot be modified."
+                    self.request, "Your subscription is not active and cannot be modified."
                 )
                 logger.warning(
                     f"User {user.username} attempted to modify an inactive subscription."
@@ -588,7 +656,7 @@ class SubscriptionChangeView(
             # Check if subscription is active in Stripe
             if stripe_subscription["status"] != "active":
                 messages.error(
-                    request, "Your subscription is not active and cannot be modified."
+                    self.request, "Your subscription is not active and cannot be modified."
                 )
                 logger.warning(
                     f"User {user.username} attempted to modify a Stripe subscription with status {stripe_subscription['status']}."
@@ -655,6 +723,7 @@ class SubscriptionChangeView(
             context["available_plans"] = available_plans
             context["form_title"] = form_title
             context["button_label"] = button_label
+            context["current_subscription"] = subscription  # Add this
 
         except Profile.DoesNotExist:
             messages.error(
@@ -729,33 +798,35 @@ class SubscriptionChangeView(
 
                 return redirect("subscriptions:manage_subscription")
 
-            current_item_id = stripe_subscription["items"]["data"][0].id
-
-            # Modify the subscription in Stripe
-            stripe.Subscription.modify(
-                subscription.stripe_subscription_id,
-                cancel_at_period_end=False,
-                items=[
+            # Create a Stripe Checkout session for the subscription change
+            checkout_session = stripe.checkout.Session.create(
+                customer=agency.stripe_customer_id,
+                payment_method_types=["card"],
+                line_items=[
                     {
-                        "id": current_item_id,
                         "price": new_plan.stripe_price_id,
-                    }
+                        "quantity": 1,
+                    },
                 ],
-                proration_behavior="create_prorations",
+                mode="subscription",
+                success_url=request.build_absolute_uri(
+                    reverse("subscriptions:subscription_change_success")
+                ),
+                cancel_url=request.build_absolute_uri(
+                    reverse("subscriptions:subscription_cancel")
+                ),
+                subscription_data={
+                    # Set proration mode
+                    "proration_behavior": "create_prorations",
+                }
             )
-
-            # Update local subscription
-            subscription.plan = new_plan
-            subscription.save()
-
-            action = "upgraded" if self.change_type == "upgrade" else "downgraded"
-            messages.success(
-                request, f"Subscription {action} to {new_plan.name} plan successfully."
-            )
-            logger.info(
-                f"Subscription {action} to {new_plan.name} by user: {user.username}"
-            )
-            return redirect("subscriptions:manage_subscription")
+            
+            # Store the session ID and plan in session for processing later
+            request.session['checkout_session_id'] = checkout_session.id
+            request.session['change_plan_id'] = plan_id
+            request.session['old_subscription_id'] = subscription.stripe_subscription_id
+            
+            return redirect(checkout_session.url)
 
         except Subscription.DoesNotExist:
             messages.error(
@@ -776,6 +847,58 @@ class SubscriptionChangeView(
             messages.error(request, "An unexpected error occurred. Please try again.")
             logger.exception(f"Unexpected error during subscription change: {e}")
             return redirect("subscriptions:subscription_home")
+
+
+def subscription_change_success(request):
+    """
+    Handle successful subscription changes.
+    """
+    # If there was a session with checkout data, process it
+    session_id = request.session.pop('checkout_session_id', None)
+    plan_id = request.session.pop('change_plan_id', None)
+    old_subscription_id = request.session.pop('old_subscription_id', None)
+    
+    if session_id and old_subscription_id:
+        try:
+            # Get session data
+            checkout_session = stripe.checkout.Session.retrieve(session_id)
+            
+            if checkout_session.status == 'complete':
+                # Get the new subscription ID
+                new_subscription_id = checkout_session.subscription
+                
+                # Cancel the old subscription if needed
+                try:
+                    stripe.Subscription.delete(old_subscription_id)
+                    logger.info(f"Cancelled old subscription: {old_subscription_id}")
+                except stripe.error.StripeError as e:
+                    logger.warning(f"Error cancelling old subscription: {e}")
+                
+                # Ensure the local database is updated
+                user = request.user
+                profile = user.profile
+                agency = profile.agency
+                
+                # Update local subscription record
+                subscription = agency.subscription
+                subscription.stripe_subscription_id = new_subscription_id
+                
+                # Get the new plan details
+                if plan_id:
+                    try:
+                        new_plan = Plan.objects.get(id=plan_id)
+                        subscription.plan = new_plan
+                    except Plan.DoesNotExist:
+                        logger.warning(f"Plan ID {plan_id} not found. Using existing plan.")
+                
+                subscription.save()
+                
+                messages.success(request, "Your subscription has been updated successfully!")
+        except Exception as e:
+            logger.exception(f"Error processing subscription change: {e}")
+            messages.warning(request, "Your subscription change may have been successful, but we encountered an error updating our records. Please contact support if you experience any issues.")
+    
+    return render(request, "subscriptions/success.html")
 
 
 class UpgradeSubscriptionView(SubscriptionChangeView):
