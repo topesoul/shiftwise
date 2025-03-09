@@ -24,11 +24,32 @@
                 <h5 class="mb-0">Subscription Details</h5>
             </div>
             <div class="card-body">
-                <p><strong>Plan:</strong> {{ current_plan.name }}</p>
-                <p><strong>Status:</strong> {{ subscription.status|title }}</p>
-                <p><strong>Current Period Start:</strong> {{ subscription.current_period_start|date:"F j, Y" }}</p>
-                <p><strong>Current Period Ends:</strong> {{ subscription.current_period_end|date:"F j, Y" }}</p>
-                <p><strong>Stripe Subscription ID:</strong> {{ subscription.stripe_subscription_id }}</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Plan:</strong> {{ current_plan.name }} ({{ current_plan.get_billing_cycle_display }})</p>
+                        <p><strong>Price:</strong> £{{ current_plan.price|floatformat:2 }} / {{ current_plan.billing_cycle }}</p>
+                        <p><strong>Status:</strong> {{ subscription.get_status_display }}</p>
+                        <p><strong>Current Period Start:</strong> {{ subscription.current_period_start|date:"F j, Y" }}</p>
+                        <p><strong>Current Period Ends:</strong> {{ subscription.current_period_end|date:"F j, Y" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        {% if billing_portal_url %}
+                            <div class="mb-3">
+                                <a href="{{ billing_portal_url }}" class="btn btn-primary btn-block">
+                                    <i class="fas fa-credit-card"></i> Manage Payment Methods
+                                </a>
+                            </div>
+                            <div class="mb-3">
+                                <a href="{{ billing_portal_url }}" class="btn btn-secondary btn-block">
+                                    <i class="fas fa-file-invoice"></i> View Billing History
+                                </a>
+                            </div>
+                            <div class="alert alert-info small">
+                                <i class="fas fa-info-circle"></i> Managing payment methods and viewing detailed billing history will redirect you to Stripe's secure billing portal.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -46,11 +67,11 @@
                                 <form method="post" action="{% url 'subscriptions:upgrade_subscription' plan.id %}">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-success btn-block mb-2">
-                                        <i class="fas fa-arrow-up"></i> Upgrade to {{ plan.name }} (£{{ plan.price|floatformat:2 }})
+                                        <i class="fas fa-arrow-up"></i> Upgrade to {{ plan.name }} ({{ plan.get_billing_cycle_display }}) - £{{ plan.price|floatformat:2 }}
                                     </button>
                                 </form>
                             {% empty %}
-                                <p>No higher-tier plans available.</p>
+                                <p>No higher-tier plans available for your current billing cycle.</p>
                             {% endfor %}
                         </div>
                     </div>
@@ -69,11 +90,11 @@
                                 <form method="post" action="{% url 'subscriptions:downgrade_subscription' plan.id %}">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-warning btn-block mb-2">
-                                        <i class="fas fa-arrow-down"></i> Downgrade to {{ plan.name }} (£{{ plan.price|floatformat:2 }})
+                                        <i class="fas fa-arrow-down"></i> Downgrade to {{ plan.name }} ({{ plan.get_billing_cycle_display }}) - £{{ plan.price|floatformat:2 }}
                                     </button>
                                 </form>
                             {% empty %}
-                                <p>No lower-tier plans available.</p>
+                                <p>No lower-tier plans available for your current billing cycle.</p>
                             {% endfor %}
                         </div>
                     </div>
@@ -81,12 +102,34 @@
             {% endif %}
         </div>
 
+        <!-- Change Billing Cycle -->
+        {% if alternate_cycle_plans %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Change Billing Cycle</h5>
+                </div>
+                <div class="card-body">
+                    {% for plan in alternate_cycle_plans %}
+                        <form method="post" action="{% url 'subscriptions:upgrade_subscription' plan.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary btn-block mb-2">
+                                <i class="fas fa-sync-alt"></i> Switch to {{ plan.name }} ({{ plan.get_billing_cycle_display }}) - £{{ plan.price|floatformat:2 }}
+                            </button>
+                        </form>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
         <!-- Cancel Subscription -->
         <div class="card">
             <div class="card-header bg-danger text-white">
                 <h5 class="mb-0">Cancel Subscription</h5>
             </div>
             <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> Canceling your subscription will remove access to premium features at the end of your current billing period.
+                </div>
                 <form action="{% url 'subscriptions:cancel_subscription' %}" method="post">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-danger btn-block" onclick="return confirm('Are you sure you want to cancel your subscription? This action cannot be undone.');">
