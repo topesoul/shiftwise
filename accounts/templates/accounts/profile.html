@@ -1,4 +1,4 @@
-<!-- /workspace/shiftwise/accounts/templates/accounts/profile.html -->
+<!-- accounts\templates\accounts\profile.html -->
 
 {% extends 'base.html' %}
 
@@ -12,7 +12,7 @@
 {% block content %}
 <div class="container my-5">
     <div class="row">
-        <!-- Profile Information -->
+        <!-- User profile card -->
         <div class="col-lg-4 mb-4">
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
@@ -21,9 +21,9 @@
                 <div class="card-body">
                     <div class="text-center mb-3">
                         {% if user.profile.profile_picture %}
-                            <img src="{{ user.profile.profile_picture.url }}" alt="Profile Picture" class="rounded-circle img-fluid" width="150" height="150">
+                            <img src="{{ user.profile.profile_picture.url }}" alt="Profile Picture" class="img-fluid rounded-circle" style="max-width: 150px; max-height: 150px;">
                         {% else %}
-                            <img src="{% static 'images/default_profile.png' %}" alt="Default Profile Picture" class="rounded-circle img-fluid" width="150" height="150">
+                            <img src="{% static 'images/default_profile.png' %}" alt="Default Profile Picture" class="img-fluid rounded-circle" style="max-width: 150px; max-height: 150px;">
                         {% endif %}
                     </div>
                     <p><strong>Username:</strong> {{ user.username }}</p>
@@ -39,8 +39,8 @@
             </div>
         </div>
 
-        <!-- MFA Settings Section -->
         <div class="col-lg-8">
+            <!-- MFA configuration section -->
             <div class="mt-5">
                 <h3>Multi-Factor Authentication</h3>
                 {% if user.profile.totp_secret %}
@@ -52,7 +52,7 @@
                 {% endif %}
             </div>
 
-            <!-- Upcoming Shifts -->
+            <!-- Upcoming shifts list -->
             <div class="mb-4">
                 <h2 class="h5 mb-3">Upcoming Shifts</h2>
                 {% if upcoming_shifts %}
@@ -95,7 +95,7 @@
                 {% endif %}
             </div>
 
-            <!-- Past Shifts -->
+            <!-- Historical shift data -->
             <div>
                 <h2 class="h5 mb-3">Past Shifts</h2>
                 {% if past_shifts %}
@@ -135,20 +135,20 @@
     </div>
 </div>
 
-<!-- Update Profile Modal -->
+<!-- Profile update modal -->
 <div class="modal fade" id="updateProfileModal" tabindex="-1" role="dialog" aria-labelledby="updateProfileModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
-        <form method="post" enctype="multipart/form-data" novalidate>
+        <form method="post" enctype="multipart/form-data">
           {% csrf_token %}
-          <div class="modal-header">
+          <div class="modal-header"></div>
             <h5 class="modal-title" id="updateProfileModalLabel">Update Your Profile</h5>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
           </div>
-          <div class="modal-body">
-            <!-- Display non-field errors -->
+          <div class="modal-body"></div>
+            {# Non-field errors #}
             {% if profile_form.non_field_errors or picture_form.non_field_errors %}
                 <div class="alert alert-danger">
                     {{ profile_form.non_field_errors }}
@@ -156,11 +156,111 @@
                 </div>
             {% endif %}
             
-            <!-- Profile Update Form -->
             <h5>Personal Information</h5>
-            {{ profile_form|crispy }}
+            <div class="alert alert-warning">
+                <strong>Required fields:</strong> Address Line 1, City, and Postcode are required.
+            </div>
             
-            <!-- Profile Picture Update Form -->
+            <div class="form-group">
+                <label for="{{ profile_form.address_line1.id_for_label }}">Address Line 1*:</label>
+                {{ profile_form.address_line1 }}
+                {% if profile_form.address_line1.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ profile_form.address_line1.errors }}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ profile_form.address_line2.id_for_label }}">Address Line 2:</label>
+                {{ profile_form.address_line2 }}
+                {% if profile_form.address_line2.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ profile_form.address_line2.errors }}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="{{ profile_form.city.id_for_label }}">City*:</label>
+                        {{ profile_form.city }}
+                        {% if profile_form.city.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ profile_form.city.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="{{ profile_form.county.id_for_label }}">County:</label>
+                        {{ profile_form.county }}
+                        {% if profile_form.county.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ profile_form.county.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="{{ profile_form.postcode.id_for_label }}">Postcode*:</label>
+                        {{ profile_form.postcode }}
+                        {% if profile_form.postcode.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ profile_form.postcode.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="{{ profile_form.country.id_for_label }}">Country:</label>
+                        {{ profile_form.country }}
+                        {% if profile_form.country.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ profile_form.country.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="{{ profile_form.travel_radius.id_for_label }}">Travel Radius (miles):</label>
+                        {{ profile_form.travel_radius }}
+                        {% if profile_form.travel_radius.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ profile_form.travel_radius.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            {% if is_agency_owner or is_agency_manager %}
+                {% if 'agency_phone_number' in profile_form.fields %}
+                <div class="form-group">
+                    <label for="{{ profile_form.agency_phone_number.id_for_label }}">Agency Phone Number:</label>
+                    {{ profile_form.agency_phone_number }}
+                    {% if profile_form.agency_phone_number.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ profile_form.agency_phone_number.errors }}
+                        </div>
+                    {% endif %}
+                    <small class="form-text text-muted">Enter phone number in UK format (e.g., +44 1234 567890)</small>
+                </div>
+                {% endif %}
+            {% endif %}
+            
+            <!-- Hidden geocoding fields -->
+            {{ profile_form.latitude }}
+            {{ profile_form.longitude }}
+            
             <h5 class="mt-4">Update Profile Picture</h5>
             {{ picture_form|crispy }}
           </div>
@@ -171,8 +271,10 @@
         </form>
       </div>
     </div>
-</div>  
+</div>
 
-<!-- Include jQuery, Bootstrap JS, Google Maps API, and address_autocomplete.js -->
+<!-- External JS dependencies -->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_PLACES_API_KEY }}&libraries=places"></script>
 <script src="{% static 'js/address_autocomplete.js' %}"></script>
+<script src="{% static 'js/profile.js' %}"></script>
 {% endblock %}
