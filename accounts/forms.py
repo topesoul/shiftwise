@@ -18,20 +18,18 @@ from core.constants import AGENCY_TYPE_CHOICES, ROLE_CHOICES
 from core.forms import AddressFormMixin
 from core.utils import assign_user_to_group, generate_unique_code
 from shiftwise.utils import geocode_address
+from accounts.validators import validate_uk_phone_number
 
 from .models import Agency, Invitation, Profile
 
 User = get_user_model()
 
-# Initialize the logger
+# Configure logging
 logger = logging.getLogger(__name__)
 
 
 class AgencyForm(AddressFormMixin, forms.ModelForm):
-    """
-    Form for creating and updating Agency instances.
-    Integrates Google Places Autocomplete for address fields.
-    """
+    """Form for creating and updating Agency records with geocoding support"""
 
     class Meta:
         model = Agency
@@ -75,7 +73,7 @@ class AgencyForm(AddressFormMixin, forms.ModelForm):
             "phone_number": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "Phone Number",
+                    "placeholder": "UK Phone Number (e.g., +44 1234 567890)",
                     "id": "id_phone_number",
                 }
             ),
@@ -115,7 +113,7 @@ class AgencyForm(AddressFormMixin, forms.ModelForm):
                 attrs={
                     "class": "form-control",
                     "placeholder": "Enter county",
-                    "autocomplete": "administrative-area",
+                    "autocomplete": "address-level1",
                     "id": "id_county",
                 }
             ),
@@ -163,6 +161,7 @@ class AgencyForm(AddressFormMixin, forms.ModelForm):
                 Column("postcode", css_class="form-group col-md-4 mb-0"),
             ),
             "country",
+            "country",
             "email",
             "phone_number",
             "website",
@@ -172,39 +171,29 @@ class AgencyForm(AddressFormMixin, forms.ModelForm):
         )
 
     def clean_email(self):
-        """Ensures the email is valid and not already in use."""
+        """Validates email uniqueness and format"""
         email = (self.cleaned_data.get("email") or "").strip().lower()
         if not email:
             raise ValidationError("Email is required.")
-        # Validate email format
+        
         try:
             forms.EmailField().clean(email)
         except ValidationError:
             raise ValidationError("Enter a valid email address.")
-        # Check if email already exists
-        if User.objects.filter(email=email).exclude(pk=self.instance.pk).exists():
-            raise ValidationError("A user with this email already exists.")
+            
+        if Agency.objects.filter(email=email).exclude(pk=self.instance.pk).exists():
+            raise ValidationError("An agency with this email already exists.")
         return email
-        
+    
     def clean_phone_number(self):
-        """
-        Validates the phone number format.
-        """
-        phone = self.cleaned_data.get("phone_number", "").strip()
-        if not phone:
-            return phone
-            
-        # Simple UK phone validation (allows spaces, dashes, and parentheses)
-        uk_phone_regex = r"^(\+44|0)( |-|\()?(\d{1,5})( |-|\))?(\d{3,10})$"
-        if not re.match(uk_phone_regex, phone):
-            raise ValidationError("Enter a valid UK phone number.")
-            
-        return phone
+        """Applies UK phone number format validation"""
+        phone_number = self.cleaned_data.get("phone_number")
+        if phone_number:
+            return validate_uk_phone_number(phone_number)
+        return phone_number
 
     def clean(self):
-        """
-        Clean method to perform geocoding of the address.
-        """
+        """Geocodes address and validates required fields"""
         cleaned_data = super().clean()
         address_line1 = cleaned_data.get("address_line1")
         address_line2 = cleaned_data.get("address_line2")
@@ -246,9 +235,7 @@ class AgencyForm(AddressFormMixin, forms.ModelForm):
         return cleaned_data
 
     def clean_postcode(self):
-        """
-        Validates the postcode based on UK-specific formats.
-        """
+        """Validates UK postcode format"""
         postcode = self.cleaned_data.get("postcode")
         if postcode:
             postcode = postcode.strip()
@@ -266,9 +253,7 @@ class AgencyForm(AddressFormMixin, forms.ModelForm):
         return postcode.upper()
 
     def clean_latitude(self):
-        """
-        Validates the latitude value.
-        """
+        """Validates latitude range (-90 to 90)"""
         latitude = self.cleaned_data.get("latitude")
         if latitude is None:
             return latitude
@@ -281,9 +266,7 @@ class AgencyForm(AddressFormMixin, forms.ModelForm):
         return latitude
 
     def clean_longitude(self):
-        """
-        Validates the longitude value.
-        """
+        """Validates longitude range (-180 to 180)"""
         longitude = self.cleaned_data.get("longitude")
         if longitude is None:
             return longitude
@@ -296,16 +279,12 @@ class AgencyForm(AddressFormMixin, forms.ModelForm):
         return longitude
 
     def save(self, commit=True):
-        """
-        Overrides the save method to correctly handle the agency attributes.
-        """
+        """Generates agency code if needed and saves the instance"""
         agency = super().save(commit=False)
 
-        # Generate unique agency code if necessary
         if not agency.agency_code:
             agency.agency_code = generate_unique_code(prefix="AG-", length=8)
 
-        # Perform model validations
         agency.clean()
 
         if commit:
@@ -315,10 +294,7 @@ class AgencyForm(AddressFormMixin, forms.ModelForm):
 
 
 class AgencySignUpForm(AddressFormMixin, UserCreationForm):
-    """
-    Form for agency owners to create a new agency account.
-    Collects both User and Agency information.
-    """
+    """Combined form for creating agency owner account and agency profile"""
 
     # Agency-specific fields
     agency_name = forms.CharField(
@@ -416,7 +392,7 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
             attrs={
                 "class": "form-control",
                 "placeholder": "Enter county",
-                "autocomplete": "administrative-area",
+                "autocomplete": "address-level1",
                 "id": "id_county",
             }
         ),
@@ -551,37 +527,29 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
         self.fields['last_name'].required = True
 
     def clean_email(self):
-        """
-        Ensures the email is valid and not already in use.
-        """
+        """Validates email uniqueness and DNS record existence"""
         email = self.cleaned_data.get("email", "").strip().lower()
         if not email:
             raise ValidationError("Email is required.")
         
-        # Validate email format
         try:
             forms.EmailField().clean(email)
         except ValidationError:
             raise ValidationError("Enter a valid email address.")
             
-        # Check if email already exists
         if User.objects.filter(email=email).exists():
             raise ValidationError("A user with this email already exists.")
         
-        # Validate domain exists (simple check)
         domain = email.split('@')[-1]
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
-            # Don't block submission, just add a warning
             self.add_error(None, f"Warning: The domain '{domain}' might not exist. Please double-check your email.")
             
         return email
     
     def clean_agency_email(self):
-        """
-        Validates the agency email.
-        """
+        """Validates agency email format"""
         email = self.cleaned_data.get("agency_email", "").strip().lower()
         if not email:
             raise ValidationError("Agency email is required.")
@@ -594,14 +562,11 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
         return email
         
     def clean_agency_phone_number(self):
-        """
-        Validates the phone number format.
-        """
+        """Validates UK phone number format"""
         phone = self.cleaned_data.get("agency_phone_number", "").strip()
         if not phone:
             return phone
             
-        # Simple UK phone validation (allows spaces, dashes, and parentheses)
         uk_phone_regex = r"^(\+44|0)( |-|\()?(\d{1,5})( |-|\))?(\d{3,10})$"
         if not re.match(uk_phone_regex, phone):
             raise ValidationError("Enter a valid UK phone number.")
@@ -609,9 +574,7 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
         return phone
 
     def clean_postcode(self):
-        """
-        Validates the postcode based on UK-specific formats.
-        """
+        """Validates UK postcode format"""
         postcode = self.cleaned_data.get("postcode")
         if postcode:
             postcode = postcode.strip()
@@ -621,16 +584,13 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
         if not postcode:
             raise ValidationError("Postcode is required.")
 
-        # UK postcode regex
         uk_postcode_regex = r"^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$"
         if not re.match(uk_postcode_regex, postcode.upper()):
             raise ValidationError("Enter a valid UK postcode.")
         return postcode.upper()
 
     def clean(self):
-        """
-        Clean method to perform geocoding of the address.
-        """
+        """Cross-validates fields and geocodes address"""
         cleaned_data = super().clean()
         address_line1 = cleaned_data.get("address_line1")
         address_line2 = cleaned_data.get("address_line2")
@@ -639,7 +599,6 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
         postcode = cleaned_data.get("postcode")
         country = cleaned_data.get("country")
 
-        # Verify required address fields
         if not address_line1:
             self.add_error("address_line1", "Address line 1 is required.")
         if not city:
@@ -647,15 +606,12 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
         if not postcode:
             self.add_error("postcode", "Postcode is required.")
 
-        # Validate user and agency emails match
         user_email = cleaned_data.get("email", "").strip().lower()
         agency_email = cleaned_data.get("agency_email", "").strip().lower()
         
         if user_email and agency_email and user_email != agency_email:
-            # Add warning but don't block submission
             self.add_error(None, "Note: Your personal email and agency email are different. Agency email will be used for business communications.")
 
-        # Construct the full address
         address_components = [
             address_line1,
             address_line2,
@@ -674,26 +630,20 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
                 logger.info(f"Geocoded address for agency signup: {full_address}")
             except Exception as e:
                 logger.error(f"Failed to geocode address for agency signup: {e}")
-                # Don't block submission, just add a warning
                 self.add_error(None, "Unable to geocode address. Location-based features may not work correctly.")
         
         return cleaned_data
 
     def save(self, commit=True):
-        """
-        Saves the User and Agency instances.
-        """
-        # Save User
+        """Creates user account, agency record, and links them together"""
         user = super().save(commit=False)
         user.email = self.cleaned_data["email"].strip().lower()
         user.role = "agency_owner"
 
         if commit:
             user.save()
-            # Assign user to 'Agency Owners' group
             assign_user_to_group(user, "Agency Owners")
 
-            # Create Agency with validated data
             try:
                 agency = Agency.objects.create(
                     name=self.cleaned_data["agency_name"],
@@ -712,7 +662,6 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
                     owner=user,
                 )
                 
-                # Update Profile
                 profile, created = Profile.objects.get_or_create(user=user)
                 profile.agency = agency
                 profile.address_line1 = self.cleaned_data.get("address_line1")
@@ -723,13 +672,12 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
                 profile.postcode = self.cleaned_data.get("postcode")
                 profile.latitude = self.cleaned_data.get("latitude")
                 profile.longitude = self.cleaned_data.get("longitude")
-                profile.travel_radius = 0.0  # Default value
+                profile.travel_radius = 0.0
                 profile.save()
                 
                 logger.info(f"New agency owner created: {user.username}, Agency: {agency.name}")
             except Exception as e:
                 logger.error(f"Error creating agency for user {user.username}: {e}")
-                # If agency creation fails, don't leave orphaned user
                 user.delete()
                 raise ValidationError(f"Agency creation failed: {str(e)}")
 
@@ -737,9 +685,7 @@ class AgencySignUpForm(AddressFormMixin, UserCreationForm):
 
 
 class SignUpForm(AddressFormMixin, UserCreationForm):
-    """
-    Form for users to sign up (primarily via invitation).
-    """
+    """Registration form for new staff members"""
 
     email = forms.EmailField(
         required=True,
@@ -833,7 +779,7 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
             attrs={
                 "class": "form-control",
                 "placeholder": "Enter county",
-                "autocomplete": "administrative-area",
+                "autocomplete": "address-level1",
                 "id": "id_county",
             }
         ),
@@ -894,7 +840,7 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
         }
 
     def __init__(self, *args, **kwargs):
-        # Accept 'request' as a keyword argument to access the current user
+        # Request param allows access to the inviting user
         self.request = kwargs.pop("request", None)
         super(SignUpForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -927,35 +873,27 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
         )
 
     def clean_email(self):
-        """
-        Ensures the email is valid and not already in use.
-        """
+        """Validates email uniqueness and DNS record existence"""
         email = self.cleaned_data.get("email", "").strip().lower()
         if not email:
             raise ValidationError("Email is required.")
-        # Validate email format
         try:
             forms.EmailField().clean(email)
         except ValidationError:
             raise ValidationError("Enter a valid email address.")
-        # Check if email already exists
         if User.objects.filter(email=email).exists():
             raise ValidationError("A user with this email already exists.")
             
-        # Validate domain exists (simple check)
         domain = email.split('@')[-1]
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
-            # Don't block submission, just add a warning
             self.add_error(None, f"Warning: The domain '{domain}' might not exist. Please double-check your email.")
             
         return email
 
     def clean_travel_radius(self):
-        """
-        Ensures that travel_radius defaults to 0.0 if not provided.
-        """
+        """Validates travel radius limits (0-50 miles)"""
         travel_radius = self.cleaned_data.get("travel_radius")
         if travel_radius is None:
             return 0.0
@@ -964,25 +902,20 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
         return travel_radius
 
     def clean_postcode(self):
-        """
-        Validates the postcode based on UK-specific formats.
-        """
+        """Validates UK postcode format"""
         postcode = self.cleaned_data.get("postcode")
         if postcode:
             postcode = postcode.strip()
         else:
             raise ValidationError("Postcode is required.")
 
-        # UK postcode regex
         uk_postcode_regex = r"^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$"
         if not re.match(uk_postcode_regex, postcode.upper()):
             raise ValidationError("Enter a valid UK postcode.")
         return postcode.upper()
 
     def clean(self):
-        """
-        Clean method to perform geocoding of the address and additional validations.
-        """
+        """Validates password security and geocodes address"""
         cleaned_data = super().clean()
         address_line1 = cleaned_data.get("address_line1")
         address_line2 = cleaned_data.get("address_line2")
@@ -991,12 +924,10 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
         postcode = cleaned_data.get("postcode")
         country = cleaned_data.get("country")
         
-        # Validate password strength beyond Django's validators
         password1 = cleaned_data.get("password1")
         password2 = cleaned_data.get("password2")
         
         if password1 and password2 and password1 == password2:
-            # Check if password contains first/last name
             first_name = cleaned_data.get("first_name", "").lower()
             last_name = cleaned_data.get("last_name", "").lower()
             
@@ -1004,7 +935,6 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
                (last_name and len(last_name) > 2 and last_name in password1.lower()):
                 self.add_error("password1", "Password should not contain your name.")
 
-        # Verify required address fields
         if not address_line1:
             self.add_error("address_line1", "Address line 1 is required.")
         if not city:
@@ -1012,7 +942,6 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
         if not postcode:
             self.add_error("postcode", "Postcode is required.")
 
-        # Construct the full address
         address_components = [
             address_line1,
             address_line2,
@@ -1031,15 +960,12 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
                 logger.info(f"Geocoded address for user signup: {full_address}")
             except Exception as e:
                 logger.error(f"Failed to geocode address for user signup: {e}")
-                # Don't block submission, just add a warning
                 self.add_error(None, "Unable to geocode address. Location-based features may not work correctly.")
                 
         return cleaned_data
 
     def save(self, commit=True):
-        """
-        Saves the user and associates them with the 'Agency Staff' group and their agency.
-        """
+        """Creates user account and profile, associates with agency if available"""
         user = super().save(commit=False)
         user.email = self.cleaned_data.get("email", "").strip().lower()
         user.role = "staff"
@@ -1047,10 +973,8 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
         if commit:
             try:
                 user.save()
-                # Assign user to 'Agency Staff' group
                 assign_user_to_group(user, "Agency Staff")
 
-                # Associate user with the agency if available
                 if (
                     self.request
                     and hasattr(self.request.user, "profile")
@@ -1082,7 +1006,6 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
                     profile.longitude = self.cleaned_data.get("longitude")
                     profile.save()
 
-                # Log the creation of a new user
                 logger.info(f"New user created: {user.username}")
                 
             except Exception as e:
@@ -1093,10 +1016,7 @@ class SignUpForm(AddressFormMixin, UserCreationForm):
 
 
 class InvitationForm(forms.ModelForm):
-    """
-    Form for agency managers to invite new staff members via email.
-    Superusers can also select an agency.
-    """
+    """Form for sending email invitations to prospective staff members"""
 
     class Meta:
         model = Invitation
@@ -1112,7 +1032,6 @@ class InvitationForm(forms.ModelForm):
             ),
         }
 
-    # Add agency field only if the user is a superuser
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
         super(InvitationForm, self).__init__(*args, **kwargs)
@@ -1124,7 +1043,6 @@ class InvitationForm(forms.ModelForm):
                 help_text="Select an agency for the staff member. Leave blank if not applicable.",
             )
         else:
-            # For non-superusers, associate with their own agency
             if hasattr(user, "profile") and user.profile.agency:
                 self.initial["agency"] = user.profile.agency
 
@@ -1136,9 +1054,7 @@ class InvitationForm(forms.ModelForm):
         )
 
     def clean_email(self):
-        """
-        Validates the invitation email to prevent duplicates and existing users.
-        """
+        """Checks for existing users and active invitations"""
         email = self.cleaned_data.get("email", "").strip().lower()
         if not email:
             raise ValidationError("Email is required.")
@@ -1147,21 +1063,17 @@ class InvitationForm(forms.ModelForm):
         if Invitation.objects.filter(email=email, is_active=True).exists():
             raise ValidationError("An active invitation for this email already exists.")
             
-        # Validate domain exists (simple check)
         domain = email.split('@')[-1]
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
-            # Don't block submission, just add a warning
             self.add_error(None, f"Warning: The domain '{domain}' might not exist. Please double-check your email.")
             
         return email
 
 
 class AcceptInvitationForm(UserCreationForm):
-    """
-    Form for invited staff members to accept their invitation and set up their account.
-    """
+    """Form for users to create accounts from received invitations"""
 
     email = forms.EmailField(
         required=True,
@@ -1223,8 +1135,6 @@ class AcceptInvitationForm(UserCreationForm):
         ),
     )
     
-    # Address fields could be added here if needed for invitation acceptance
-
     class Meta:
         model = User
         fields = ("username", "email", "password1", "password2", "first_name", "last_name")
@@ -1252,54 +1162,42 @@ class AcceptInvitationForm(UserCreationForm):
         )
 
     def clean_email(self):
-        """
-        Ensures the email remains unchanged from the invitation.
-        """
+        """Verifies email matches the invitation"""
         email = self.cleaned_data.get("email", "").strip().lower()
         if not email:
             raise ValidationError("Email is required.")
             
-        # If invitation is provided, make sure email matches invitation
         if self.invitation and email != self.invitation.email:
             raise ValidationError("Email does not match the invitation.")
             
         return email
         
     def clean_username(self):
-        """
-        Validates the username.
-        """
+        """Checks username availability"""
         username = self.cleaned_data.get("username")
         if not username:
             raise ValidationError("Username is required.")
             
-        # Check for uniqueness
         if User.objects.filter(username=username).exists():
             raise ValidationError("This username is already taken. Please choose another.")
             
         return username
         
     def clean(self):
-        """
-        Extra validations.
-        """
+        """Validates invitation status and password security"""
         cleaned_data = super().clean()
         
-        # Check if invitation is still valid
         if self.invitation and self.invitation.is_expired():
             raise ValidationError("This invitation has expired. Please request a new invitation.")
             
-        # Validate password strength beyond Django's validators
         password1 = cleaned_data.get("password1")
         password2 = cleaned_data.get("password2")
         
         if password1 and password2 and password1 == password2:
-            # Check if password contains parts of the username
             username = cleaned_data.get("username", "").lower()
             if username and len(username) > 3 and username in password1.lower():
                 self.add_error("password1", "Password should not contain your username.")
                 
-            # Check if password contains first/last name
             first_name = cleaned_data.get("first_name", "").lower()
             last_name = cleaned_data.get("last_name", "").lower()
             
@@ -1310,9 +1208,7 @@ class AcceptInvitationForm(UserCreationForm):
         return cleaned_data
 
     def save(self, commit=True):
-        """
-        Saves the user, assigns to 'Agency Staff' group, and creates an associated Profile.
-        """
+        """Creates user account, assigns to appropriate group, and links to agency"""
         user = super().save(commit=False)
         user.email = self.cleaned_data.get("email", "").strip().lower()
         user.first_name = self.cleaned_data.get("first_name", "").strip()
@@ -1323,28 +1219,22 @@ class AcceptInvitationForm(UserCreationForm):
             try:
                 user.save()
                 
-                # Assign to 'Agency Staff' group
                 assign_user_to_group(user, "Agency Staff")
 
-                # Link the user to the agency associated with the invitation
                 if self.invitation and self.invitation.agency:
                     profile, created = Profile.objects.get_or_create(user=user)
                     profile.agency = self.invitation.agency
                     
-                    # Set default profile fields
-                    profile.travel_radius = 0.0  # Default travel radius
+                    profile.travel_radius = 0.0
                     profile.save()
 
-                # Mark the invitation as used
                 if self.invitation:
                     self.invitation.is_active = False
                     self.invitation.accepted_at = timezone.now()
                     self.invitation.save()
 
-                # Log the acceptance of the invitation
                 logger.info(f"Invitation accepted by user: {user.username}")
 
-                # Log the user in
                 if self.request:
                     login(self.request, user)
                     
@@ -1356,9 +1246,7 @@ class AcceptInvitationForm(UserCreationForm):
 
 
 class ProfilePictureForm(forms.ModelForm):
-    """
-    Form for uploading and updating the profile picture.
-    """
+    """Form for uploading and validating profile pictures"""
 
     class Meta:
         model = Profile
@@ -1368,77 +1256,75 @@ class ProfilePictureForm(forms.ModelForm):
                 attrs={
                     "class": "form-control-file",
                     "id": "id_profile_picture",
-                    "accept": "image/jpeg,image/png,image/gif",  # Restrict to common image formats
+                    "accept": "image/jpeg,image/png,image/gif",
                 }
             ),
         }
 
     def clean_profile_picture(self):
-        """
-        Validates the uploaded profile picture for file type, size, and dimensions.
-        """
+        """Validates image type, size, and dimensions"""
+        if self.data.get('profile_picture-clear') == 'on':
+            logger.info("Profile picture cleared by user")
+            return None
+            
         picture = self.cleaned_data.get("profile_picture", False)
         if not picture:
-            # If no new picture was uploaded, return the current value
             return self.instance.profile_picture if hasattr(self.instance, 'profile_picture') else None
             
-        # Validate file size
-        max_file_size = 5 * 1024 * 1024  # Set maximum file size to 5MB
+        max_file_size = 5 * 1024 * 1024
         if picture.size > max_file_size:
-            logger.warning(f"Profile picture size too large: {picture.size} bytes.")
+            logger.warning(f"Rejected oversized profile picture: {picture.size} bytes")
             raise ValidationError("Image file too large (maximum 5MB allowed).")
 
-        # Validate content type using Pillow
         try:
+            file_extension = picture.name.split('.')[-1].lower()
+            if file_extension not in ["jpg", "jpeg", "png", "gif"]:
+                logger.warning(f"Rejected file with invalid extension: {file_extension}")
+                raise ValidationError(f"Unsupported file extension: {file_extension}. Only JPEG, PNG, and GIF are allowed.")
+            
             img = Image.open(picture)
             img_format = img.format.lower() if img.format else ''
             
-            # Check image format
             if img_format not in ["jpeg", "png", "gif"]:
-                logger.warning(f"Unsupported image format: {img_format}.")
-                raise ValidationError(
-                    "Unsupported file type. Only JPEG, PNG, and GIF are allowed."
-                )
+                logger.warning(f"Rejected unsupported format: {img_format}")
+                raise ValidationError("Unsupported file type. Only JPEG, PNG, and GIF are allowed.")
                 
-            # Check image dimensions
             width, height = img.size
             if width > 2000 or height > 2000:
-                logger.warning(f"Image dimensions too large: {width}x{height}")
+                logger.warning(f"Rejected oversized dimensions: {width}x{height}")
                 raise ValidationError("Image dimensions should not exceed 2000x2000 pixels.")
                 
-            # Check if the file is actually an image by trying to resize it
             img.thumbnail((100, 100))
+            picture.seek(0)
                 
-        except ValidationError as ve:
-            # Re-raise validation errors
-            raise ve
+        except Image.UnidentifiedImageError:
+            logger.error(f"Could not identify image format for file: {picture.name}")
+            raise ValidationError("The uploaded file is not a valid image.")
+        except ValidationError:
+            raise
         except Exception as e:
-            logger.error(f"Error processing profile picture: {e}")
-            raise ValidationError("Invalid image file. Please upload a valid image.")
+            logger.error(f"Image processing error: {e}")
+            raise ValidationError(f"Invalid image file: {e}. Please upload a valid image.")
             
-        # If everything is valid, return the picture
-        logger.debug(f"Valid profile picture uploaded: {picture.name}, size: {picture.size} bytes")
+        logger.debug(f"Profile picture validated: {picture.name, picture.size} bytes")
         return picture
-        
-    def save(self, commit=True):
-        """
-        Override save method to clean up old profile pictures.
-        """
-        profile = super().save(commit=False)
-        
-        # Optionally implement cleanup of old profile pictures here
-        # Note: The signal handler in accounts/signals.py already handles this
-        
-        if commit:
-            profile.save()
-            
-        return profile
 
 
 class UpdateProfileForm(AddressFormMixin, forms.ModelForm):
-    """
-    Form for users to update their profile information (excluding profile picture).
-    """
+    """Form for updating user profile and address information"""
+
+    # Agency phone field for owners/managers
+    agency_phone_number = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Agency phone number (UK format)",
+                "id": "id_agency_phone_number",
+            }
+        ),
+    )
 
     class Meta:
         model = Profile
@@ -1482,7 +1368,7 @@ class UpdateProfileForm(AddressFormMixin, forms.ModelForm):
                 attrs={
                     "class": "form-control",
                     "placeholder": "Enter county",
-                    "autocomplete": "administrative-area",
+                    "autocomplete": "address-level1",
                     "id": "id_county",
                 }
             ),
@@ -1503,16 +1389,6 @@ class UpdateProfileForm(AddressFormMixin, forms.ModelForm):
                     "id": "id_postcode",
                 }
             ),
-            "latitude": forms.HiddenInput(
-                attrs={
-                    "id": "id_latitude",
-                }
-            ),
-            "longitude": forms.HiddenInput(
-                attrs={
-                    "id": "id_longitude",
-                }
-            ),
             "travel_radius": forms.NumberInput(
                 attrs={
                     "class": "form-control",
@@ -1521,46 +1397,75 @@ class UpdateProfileForm(AddressFormMixin, forms.ModelForm):
                     "id": "id_travel_radius",
                 }
             ),
+            "latitude": forms.HiddenInput(
+                attrs={"id": "id_latitude"},
+            ),
+            "longitude": forms.HiddenInput(
+                attrs={"id": "id_longitude"},
+            ),
         }
 
     def __init__(self, *args, **kwargs):
         super(UpdateProfileForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_method = "post"
-        self.helper.layout = Layout(
-            "address_line1",
-            "address_line2",
-            Row(
-                Column("city", css_class="form-group col-md-4 mb-0"),
-                Column("county", css_class="form-group col-md-4 mb-0"),
-                Column("postcode", css_class="form-group col-md-4 mb-0"),
-            ),
-            Row(
-                Column("country", css_class="form-group col-md-6 mb-0"),
-                Column("travel_radius", css_class="form-group col-md-6 mb-0"),
-            ),
-            # Hidden fields
-            Field("latitude"),
-            Field("longitude"),
-        )
+        for field in ['address_line1', 'city', 'postcode']:
+            if field in self.fields:
+                self.fields[field].widget.attrs['required'] = 'required'
+        
+        user = self.instance.user if self.instance else None
+        show_agency_phone = False
+        
+        if user:
+            if hasattr(user, 'owned_agency') and user.owned_agency:
+                show_agency_phone = True
+                self.fields['agency_phone_number'].initial = user.owned_agency.phone_number
+            elif user.groups.filter(name__in=["Agency Managers", "Agency Owners"]).exists() and user.profile.agency:
+                show_agency_phone = True
+                self.fields['agency_phone_number'].initial = user.profile.agency.phone_number
+        
+        if show_agency_phone:
+            self.helper.layout = Layout(
+                "address_line1",
+                "address_line2",
+                Row(
+                    Column("city", css_class="form-group col-md-4 mb-0"),
+                    Column("county", css_class="form-group col-md-4 mb-0"),
+                    Column("postcode", css_class="form-group col-md-4 mb-0"),
+                ),
+                Row(
+                    Column("country", css_class="form-group col-md-6 mb-0"),
+                    Column("agency_phone_number", css_class="form-group col-md-6 mb-0"),
+                ),
+                "travel_radius",
+                Field("latitude"),
+                Field("longitude"),
+            )
+        else:
+            self.fields.pop('agency_phone_number')
+            self.helper.layout = Layout(
+                "address_line1",
+                "address_line2",
+                Row(
+                    Column("city", css_class="form-group col-md-4 mb-0"),
+                    Column("county", css_class="form-group col-md-4 mb-0"),
+                    Column("postcode", css_class="form-group col-md-4 mb-0"),
+                ),
+                "country",
+                "travel_radius",
+                Field("latitude"),
+                Field("longitude"),
+            )
 
-    def clean_postcode(self):
-        """
-        Validates the postcode based on UK-specific formats.
-        """
-        postcode = self.cleaned_data.get("postcode", "").strip()
-        if not postcode:
-            return postcode
-        # UK postcode regex
-        uk_postcode_regex = r"^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$"
-        if not re.match(uk_postcode_regex, postcode.upper()):
-            raise ValidationError("Enter a valid UK postcode.")
-        return postcode.upper()
+    def clean_agency_phone_number(self):
+        """Validates UK phone number format"""
+        phone_number = self.cleaned_data.get("agency_phone_number")
+        if phone_number:
+            return validate_uk_phone_number(phone_number)
+        return phone_number
 
     def clean_travel_radius(self):
-        """
-        Ensures that travel_radius defaults to 0.0 if not provided.
-        """
+        """Validates travel radius limits (0-50 miles)"""
         travel_radius = self.cleaned_data.get("travel_radius")
         if travel_radius is None:
             return 0.0
@@ -1568,58 +1473,32 @@ class UpdateProfileForm(AddressFormMixin, forms.ModelForm):
             raise ValidationError("Travel radius must be between 0 and 50 miles.")
         return travel_radius
 
-    def clean(self):
-        """
-        Clean method to perform geocoding of the address.
-        """
-        cleaned_data = super().clean()
-        address_line1 = cleaned_data.get("address_line1")
-        address_line2 = cleaned_data.get("address_line2")
-        city = cleaned_data.get("city")
-        county = cleaned_data.get("county")
-        postcode = cleaned_data.get("postcode")
-        country = cleaned_data.get("country")
-
-        # Construct the full address
-        address_components = [
-            address_line1,
-            address_line2,
-            city,
-            county,
-            postcode,
-            country,
-        ]
-        full_address = ", ".join(filter(None, address_components))
-
-        if full_address.strip():
-            try:
-                geocode_result = geocode_address(full_address)
-                cleaned_data["latitude"] = geocode_result["latitude"]
-                cleaned_data["longitude"] = geocode_result["longitude"]
-                logger.info(f"Geocoded address for profile update: {full_address}")
-            except Exception as e:
-                logger.error(f"Failed to geocode address for profile update: {e}")
-                # Don't block form submission for geocoding failures
-                # Just add a warning message
-                self.add_error(None, "Unable to geocode address. Location-based features may not work correctly.")
-        else:
-            self.add_error("address_line1", "Address fields cannot be empty.")
-        return cleaned_data
-
     def save(self, commit=True):
-        """
-        Override save method to update Profile.
-        """
+        """Updates profile and agency phone if user has permissions"""
         profile = super().save(commit=False)
+        
+        user = profile.user
+        agency_phone = self.cleaned_data.get('agency_phone_number')
+        
+        if agency_phone and hasattr(user, 'owned_agency') and user.owned_agency:
+            agency = user.owned_agency
+            agency.phone_number = agency_phone
+            if commit:
+                agency.save()
+        elif agency_phone and user.groups.filter(name__in=["Agency Managers", "Agency Owners"]).exists() and profile.agency:
+            agency = profile.agency
+            agency.phone_number = agency_phone
+            if commit:
+                agency.save()
+                
         if commit:
             profile.save()
+            
         return profile
 
 
 class UserForm(UserCreationForm):
-    """
-    Form for creating users via Class-Based Views.
-    """
+    """Admin form for creating user accounts with group assignment"""
 
     email = forms.EmailField(
         required=True,
@@ -1717,40 +1596,31 @@ class UserForm(UserCreationForm):
         )
 
     def clean_email(self):
-        """
-        Ensures the email is unique.
-        """
+        """Validates email uniqueness and DNS record existence"""
         email = self.cleaned_data.get("email", "").strip().lower()
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError("A user with this email already exists.")
             
-        # Validate domain exists (simple check)
         domain = email.split('@')[-1]
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
-            # Don't block submission, just add a warning
             self.add_error(None, f"Warning: The domain '{domain}' might not exist. Please double-check your email.")
             
         return email
         
     def clean(self):
-        """
-        Additional validations.
-        """
+        """Validates password security against username and name inclusion"""
         cleaned_data = super().clean()
         
-        # Validate password strength beyond Django's validators
         password1 = cleaned_data.get("password1")
         password2 = cleaned_data.get("password2")
         
         if password1 and password2 and password1 == password2:
-            # Check if password contains parts of the username
             username = cleaned_data.get("username", "").lower()
             if username and len(username) > 3 and username in password1.lower():
                 self.add_error("password1", "Password should not contain your username.")
                 
-            # Check if password contains first/last name
             first_name = cleaned_data.get("first_name", "").lower()
             last_name = cleaned_data.get("last_name", "").lower()
             
@@ -1762,11 +1632,9 @@ class UserForm(UserCreationForm):
 
 
 class UserUpdateForm(UserChangeForm):
-    """
-    Form for updating users via Class-Based Views without changing the password.
-    """
+    """Admin form for updating user accounts without password changes"""
 
-    password = None  # Exclude the password field
+    password = None  # Exclude password field
 
     email = forms.EmailField(
         required=True,
@@ -1850,28 +1718,22 @@ class UserUpdateForm(UserChangeForm):
         )
 
     def clean_email(self):
-        """
-        Ensures the email remains unique.
-        """
+        """Validates email uniqueness and DNS record existence"""
         email = self.cleaned_data.get("email", "").strip().lower()
         if User.objects.filter(email=email).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("This email is already in use.")
             
-        # Validate domain exists (simple check)
         domain = email.split('@')[-1]
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
-            # Don't block submission, just add a warning
             self.add_error(None, f"Warning: The domain '{domain}' might not exist. Please double-check your email.")
             
         return email
 
 
 class StaffCreationForm(AddressFormMixin, UserCreationForm):
-    """
-    Form for agency managers to add new staff members.
-    """
+    """Form for agency managers to create staff accounts with address info"""
 
     email = forms.EmailField(
         required=True,
@@ -1965,7 +1827,7 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
             attrs={
                 "class": "form-control",
                 "placeholder": "Enter county",
-                "autocomplete": "administrative-area",
+                "autocomplete": "address-level1",
                 "id": "id_county",
             }
         ),
@@ -2058,9 +1920,7 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
         )
 
     def clean_email(self):
-        """
-        Validates the email to prevent duplicates and existing users.
-        """
+        """Checks for existing users and active invitations"""
         email = self.cleaned_data.get("email", "").strip().lower()
         if not email:
             raise ValidationError("Email is required.")
@@ -2069,20 +1929,16 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
         if Invitation.objects.filter(email=email, is_active=True).exists():
             raise ValidationError("An active invitation for this email already exists.")
             
-        # Validate domain exists (simple check)
         domain = email.split('@')[-1]
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
-            # Don't block submission, just add a warning
             self.add_error(None, f"Warning: The domain '{domain}' might not exist. Please double-check your email.")
             
         return email
 
     def clean_travel_radius(self):
-        """
-        Ensures that travel_radius defaults to 0.0 if not provided.
-        """
+        """Validates travel radius limits (0-50 miles)"""
         travel_radius = self.cleaned_data.get("travel_radius")
         if travel_radius is None:
             return 0.0
@@ -2091,9 +1947,7 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
         return travel_radius
 
     def clean_postcode(self):
-        """
-        Validates the postcode based on UK-specific formats.
-        """
+        """Validates UK postcode format"""
         postcode = self.cleaned_data.get("postcode")
         if postcode:
             postcode = postcode.strip()
@@ -2101,19 +1955,15 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
             postcode = ""
 
         if not postcode:
-            # If no postcode is provided, return it as is
             return postcode
 
-        # UK postcode regex
         uk_postcode_regex = r"^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$"
         if not re.match(uk_postcode_regex, postcode.upper()):
             raise ValidationError("Enter a valid UK postcode.")
         return postcode.upper()
 
     def clean(self):
-        """
-        Clean method to perform geocoding of the address.
-        """
+        """Validates password security and geocodes address"""
         cleaned_data = super().clean()
         address_line1 = cleaned_data.get("address_line1")
         address_line2 = cleaned_data.get("address_line2")
@@ -2122,12 +1972,10 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
         postcode = cleaned_data.get("postcode")
         country = cleaned_data.get("country")
         
-        # Validate password strength beyond Django's validators
         password1 = cleaned_data.get("password1")
         password2 = cleaned_data.get("password2")
         
         if password1 and password2 and password1 == password2:
-            # Check if password contains parts of the username or name
             username = cleaned_data.get("username", "").lower()
             first_name = cleaned_data.get("first_name", "").lower()
             last_name = cleaned_data.get("last_name", "").lower()
@@ -2139,7 +1987,6 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
                (last_name and len(last_name) > 2 and last_name in password1.lower()):
                 self.add_error("password1", "Password should not contain the name.")
 
-        # Verify required address fields
         if not address_line1:
             self.add_error("address_line1", "Address line 1 is required.")
         if not city:
@@ -2147,7 +1994,6 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
         if not postcode:
             self.add_error("postcode", "Postcode is required.")
 
-        # Construct the full address
         address_components = [
             address_line1,
             address_line2,
@@ -2170,15 +2016,12 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
                 logger.error(
                     f"Failed to geocode address for invitation acceptance: {e}"
                 )
-                # Don't block submission, just add a warning
                 self.add_error(None, "Unable to geocode address. Location-based features may not work correctly.")
         
         return cleaned_data
 
     def save(self, commit=True):
-        """
-        Saves the user, assigns to 'Agency Staff' group, and creates an associated Profile.
-        """
+        """Creates staff account and links to agency"""
         user = super().save(commit=False)
         user.email = self.cleaned_data.get("email", "").strip().lower()
         user.role = "staff"
@@ -2186,10 +2029,8 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
         if commit:
             try:
                 user.save()
-                # Assign to 'Agency Staff' group
                 assign_user_to_group(user, "Agency Staff")
 
-                # Associate user with the agency if available
                 if (
                     self.request
                     and hasattr(self.request.user, "profile")
@@ -2213,7 +2054,6 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
                     profile.travel_radius = self.cleaned_data.get("travel_radius") or 0.0
                     profile.save()
 
-                # Log the creation of a new user
                 logger.info(f"New staff member created: {user.username}")
                 
             except Exception as e:
@@ -2224,9 +2064,7 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
 
 
 class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
-    """
-    Form for agency managers to update existing staff members.
-    """
+    """Form for updating staff member details and address"""
 
     email = forms.EmailField(
         required=True,
@@ -2329,7 +2167,7 @@ class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
             attrs={
                 "class": "form-control",
                 "placeholder": "Enter county",
-                "autocomplete": "administrative-area",
+                "autocomplete": "address-level1",
                 "id": "id_county",
             }
         ),
@@ -2401,7 +2239,6 @@ class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
             Field("longitude"),
         )
         
-        # Initialize travel_radius and address fields from the profile
         if self.instance and hasattr(self.instance, 'profile'):
             profile = self.instance.profile
             self.initial.update({
@@ -2417,27 +2254,21 @@ class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
             })
 
     def clean_email(self):
-        """
-        Ensures the email remains unique.
-        """
+        """Validates email uniqueness and DNS record existence"""
         email = self.cleaned_data.get("email", "").strip().lower()
         if User.objects.filter(email=email).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("This email is already in use.")
             
-        # Validate domain exists (simple check)
         domain = email.split('@')[-1]
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
-            # Don't block submission, just add a warning
             self.add_error(None, f"Warning: The domain '{domain}' might not exist. Please double-check your email.")
             
         return email
 
     def clean_travel_radius(self):
-        """
-        Ensures that travel_radius defaults to 0.0 if not provided.
-        """
+        """Validates travel radius limits (0-50 miles)"""
         travel_radius = self.cleaned_data.get("travel_radius")
         if travel_radius is None:
             return 0.0
@@ -2446,9 +2277,7 @@ class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
         return travel_radius
 
     def clean_postcode(self):
-        """
-        Validates the postcode based on UK-specific formats.
-        """
+        """Validates UK postcode format"""
         postcode = self.cleaned_data.get("postcode")
         if postcode:
             postcode = postcode.strip()
@@ -2456,19 +2285,15 @@ class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
             postcode = ""
 
         if not postcode:
-            # If no postcode is provided, return it as is
             return postcode
 
-        # UK postcode regex
         uk_postcode_regex = r"^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$"
         if not re.match(uk_postcode_regex, postcode.upper()):
             raise ValidationError("Enter a valid UK postcode.")
         return postcode.upper()
 
     def clean(self):
-        """
-        Clean method to perform geocoding of the address.
-        """
+        """Geocodes address if fields are provided"""
         cleaned_data = super().clean()
         address_line1 = cleaned_data.get("address_line1")
         address_line2 = cleaned_data.get("address_line2")
@@ -2477,9 +2302,7 @@ class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
         postcode = cleaned_data.get("postcode")
         country = cleaned_data.get("country")
 
-        # If address fields are provided, geocode the address
         if address_line1 or city or postcode:
-            # Construct the full address
             address_components = [
                 address_line1,
                 address_line2,
@@ -2498,25 +2321,20 @@ class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
                     logger.info(f"Geocoded address for staff update: {full_address}")
                 except Exception as e:
                     logger.error(f"Failed to geocode address for staff update: {e}")
-                    # Don't block submission, just add a warning
                     self.add_error(None, "Unable to geocode address. Location-based features may not work correctly.")
                     
         return cleaned_data
 
     def save(self, commit=True):
-        """
-        Saves the user and updates the associated Profile.
-        """
+        """Updates user and profile information"""
         user = super().save(commit=False)
         user.email = self.cleaned_data.get("email", "").strip().lower()
 
         if commit:
             try:
                 user.save()
-                # Update profile
                 profile, created = Profile.objects.get_or_create(user=user)
                 profile.travel_radius = self.cleaned_data.get("travel_radius") or 0.0
-                # Only update address fields if they are provided
                 address_line1 = self.cleaned_data.get("address_line1")
                 if address_line1:
                     profile.address_line1 = address_line1
@@ -2529,7 +2347,6 @@ class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
                     profile.longitude = self.cleaned_data.get("longitude")
                 profile.save()
 
-                # Log the update
                 logger.info(f"Staff member updated: {user.username}")
                 
             except Exception as e:
@@ -2540,6 +2357,8 @@ class StaffUpdateForm(AddressFormMixin, forms.ModelForm):
 
 
 class ActivateTOTPForm(forms.Form):
+    """Form for enabling two-factor authentication"""
+
     totp_code = forms.CharField(
         max_length=6,
         widget=forms.TextInput(
@@ -2553,14 +2372,11 @@ class ActivateTOTPForm(forms.Form):
     )
     
     def clean_totp_code(self):
-        """
-        Validates the format of the TOTP code.
-        """
+        """Validates TOTP code format (6 digits)"""
         code = self.cleaned_data.get("totp_code", "").strip()
         if not code:
             raise ValidationError("TOTP code is required.")
         
-        # Ensure the code is digits only and correct length
         if not code.isdigit() or len(code) != 6:
             raise ValidationError("TOTP code must be 6 digits.")
             
@@ -2568,6 +2384,8 @@ class ActivateTOTPForm(forms.Form):
 
 
 class RecoveryCodeForm(forms.Form):
+    """Form for using 2FA recovery codes"""
+
     recovery_code = forms.CharField(
         max_length=8,
         required=True,
@@ -2582,14 +2400,11 @@ class RecoveryCodeForm(forms.Form):
     )
     
     def clean_recovery_code(self):
-        """
-        Validates the format of the recovery code.
-        """
+        """Validates recovery code format (8 alphanumeric chars)"""
         code = self.cleaned_data.get("recovery_code", "").strip().upper()
         if not code:
             raise ValidationError("Recovery code is required.")
             
-        # Check format (typically 8 characters, alphanumeric)
         if len(code) != 8 or not all(c.isalnum() for c in code):
             raise ValidationError("Invalid recovery code format. Please enter a valid 8-character code.")
             
@@ -2597,6 +2412,8 @@ class RecoveryCodeForm(forms.Form):
 
 
 class MFAForm(forms.Form):
+    """Form for entering MFA codes during login"""
+
     totp_code = forms.CharField(
         max_length=6,
         widget=forms.TextInput(
@@ -2611,14 +2428,11 @@ class MFAForm(forms.Form):
     )
     
     def clean_totp_code(self):
-        """
-        Validates the format of the TOTP code.
-        """
+        """Validates TOTP code format (6 digits)"""
         code = self.cleaned_data.get("totp_code", "").strip()
         if not code:
             raise ValidationError("MFA code is required.")
         
-        # Ensure the code is digits only and correct length
         if not code.isdigit() or len(code) != 6:
             raise ValidationError("MFA code must be 6 digits.")
             
