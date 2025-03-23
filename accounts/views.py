@@ -15,6 +15,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -67,7 +68,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomLoginView(FormView):
-    """Handles user login with two-step MFA verification."""
+    """User login view with MFA support."""
 
     template_name = "accounts/login.html"
     form_class = AuthenticationForm
@@ -141,7 +142,7 @@ class CustomLoginView(FormView):
 
 
 class LogoutView(LoginRequiredMixin, View):
-    """Handles user logout."""
+    """User logout handler."""
 
     def get(self, request, *args, **kwargs):
         logger.info(f"User {request.user.username} logged out.")
@@ -151,7 +152,7 @@ class LogoutView(LoginRequiredMixin, View):
 
 
 class MFAVerifyView(FormView):
-    """Handles MFA verification step after primary authentication."""
+    """Second factor authentication verification."""
 
     template_name = "accounts/mfa_verify.html"
     form_class = MFAForm
@@ -204,7 +205,7 @@ class MFAVerifyView(FormView):
 
 
 class SignUpView(FormView):
-    """Handles user signup via invitations."""
+    """User registration handler."""
 
     template_name = "accounts/signup.html"
     form_class = SignUpForm
@@ -218,15 +219,13 @@ class SignUpView(FormView):
 
 
 class SignupSelectionView(TemplateView):
-    """
-    Renders a page for users to choose their signup type.
-    """
+    """Signup type selection page."""
 
     template_name = "accounts/signup_selection.html"
 
 
 class AgencySignUpView(CreateView):
-    """Handles agency signup."""
+    """Agency registration handler."""
 
     model = User
     form_class = AgencySignUpForm
@@ -276,7 +275,7 @@ class AgencySignUpView(CreateView):
 
 
 class ActivateTOTPView(LoginRequiredMixin, View):
-    """Activates TOTP-based MFA."""
+    """TOTP-based MFA activation process."""
 
     def get(self, request, *args, **kwargs):
         # Check if MFA is already enabled
@@ -376,7 +375,7 @@ class ActivateTOTPView(LoginRequiredMixin, View):
 
 
 class DisableTOTPView(LoginRequiredMixin, View):
-    """Disables TOTP-based MFA for the user."""
+    """MFA deactivation handler."""
 
     def get(self, request, *args, **kwargs):
         return render(request, "accounts/deactivate_totp.html")
@@ -389,7 +388,7 @@ class DisableTOTPView(LoginRequiredMixin, View):
         return redirect("accounts:profile")
 
 class ResendTOTPCodeView(LoginRequiredMixin, View):
-    """Resends or refreshes the TOTP QR code."""
+    """Refreshes TOTP QR code."""
 
     def get(self, request, *args, **kwargs):
         user_totp_secret = request.user.profile.totp_secret or pyotp.random_base32()
@@ -429,17 +428,20 @@ class ResendTOTPCodeView(LoginRequiredMixin, View):
 
 
 class ProfileView(LoginRequiredMixin, View):
-    """Renders the user profile with upcoming and past shifts and handles profile updates."""
+    """User profile manager."""
 
     template_name = "accounts/profile.html"
 
     def get(self, request, *args, **kwargs):
-        profile, _ = Profile.objects.get_or_create(user=request.user)
+        # Force refresh from database
+        profile = Profile.objects.get(user=request.user)
         profile_form = UpdateProfileForm(instance=profile)
         picture_form = ProfilePictureForm(instance=profile)
 
         context = self.get_context_data(
-            profile_form=profile_form, picture_form=picture_form
+            profile=profile,
+            profile_form=profile_form, 
+            picture_form=picture_form
         )
         return render(request, self.template_name, context)
 
@@ -451,49 +453,71 @@ class ProfileView(LoginRequiredMixin, View):
         )
 
         if profile_form.is_valid() and picture_form.is_valid():
-            profile_form.save()
-            picture_form.save()
-            messages.success(request, "Your profile has been updated successfully.")
-            logger.info(f"Profile updated for user {request.user.username}")
-            return redirect("accounts:profile")
+            try:
+                with transaction.atomic():
+                    profile_form.save()
+                    
+                    if 'profile_picture' in request.FILES:
+                        picture_form.save()
+                    elif 'profile_picture-clear' in request.POST:
+                        profile.profile_picture = None
+                        profile.save(update_fields=['profile_picture'])
+                
+                messages.success(request, "Your profile has been updated successfully.")
+                logger.info(f"Profile updated for user {request.user.username}")
+                return redirect("accounts:profile")
+            except Exception as e:
+                logger.error(f"Error updating profile for user {request.user.username}: {e}")
+                messages.error(request, "An error occurred while updating your profile. Please try again.")
         else:
-            messages.error(request, "Please correct the errors below.")
-            logger.warning(
-                f"Profile update failed for user {request.user.username}: {profile_form.errors}, {picture_form.errors}"
-            )
-            context = self.get_context_data(
-                profile_form=profile_form, picture_form=picture_form, open_modal=True
-            )
-            return render(request, self.template_name, context)
+            # Log form errors for debugging
+            if profile_form.errors:
+                logger.warning(f"Profile form errors: {profile_form.errors}")
+            if picture_form.errors:
+                logger.warning(f"Picture form errors: {picture_form.errors}")
+                
+        messages.error(request, "Please correct the errors below.")
+        context = self.get_context_data(
+            profile_form=profile_form, picture_form=picture_form, open_modal=True
+        )
+        return render(request, self.template_name, context)
 
     def get_context_data(self, **kwargs):
+        """Prepares context data for the profile view."""
         context = {}
         user = self.request.user
 
-        # Fetch all shift assignments for the user
+        # Get shift assignments
         assigned_shifts = ShiftAssignment.objects.filter(worker=user)
-
-        # Fetch upcoming and past shifts for the user
         today = timezone.now().date()
+        
+        # Split into upcoming and past shifts
         upcoming_shifts = (
             assigned_shifts.filter(shift__shift_date__gte=today)
             .select_related("shift")
             .order_by("shift__shift_date")
         )
-
         past_shifts = (
             assigned_shifts.filter(shift__shift_date__lt=today)
             .select_related("shift")
             .order_by("-shift__shift_date")
         )
 
-        context.update(
-            {
-                "upcoming_shifts": upcoming_shifts,
-                "past_shifts": past_shifts,
-                "GOOGLE_PLACES_API_KEY": settings.GOOGLE_PLACES_API_KEY,
-            }
-        )
+        # Add agency data
+        if hasattr(user, 'profile') and user.profile.agency:
+            context["agency"] = user.profile.agency
+            
+        if hasattr(user, 'owned_agency') and user.owned_agency:
+            context["owned_agency"] = user.owned_agency
+
+        # Build final context
+        context.update({
+            "upcoming_shifts": upcoming_shifts,
+            "past_shifts": past_shifts,
+            "GOOGLE_PLACES_API_KEY": settings.GOOGLE_PLACES_API_KEY,
+            "is_agency_owner": user.groups.filter(name="Agency Owners").exists(),
+            "is_agency_manager": user.groups.filter(name="Agency Managers").exists(),
+        })
         context.update(kwargs)
         return context
 
@@ -501,7 +525,7 @@ class ProfileView(LoginRequiredMixin, View):
 class AgencyDashboardView(
     LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionRequiredMixin, View
 ):
-    """Renders the agency manager's dashboard."""
+    """Agency management dashboard."""
 
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -538,7 +562,7 @@ class AgencyDashboardView(
 class StaffDashboardView(
     LoginRequiredMixin, AgencyStaffRequiredMixin, SubscriptionRequiredMixin, View
 ):
-    """Renders the staff member's dashboard."""
+    """Staff member dashboard."""
 
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -567,7 +591,7 @@ class StaffDashboardView(
 
 
 class SuperuserDashboardView(LoginRequiredMixin, SuperuserRequiredMixin, View):
-    """Renders the superuser's dashboard."""
+    """Admin dashboard."""
 
     def get(self, request, *args, **kwargs):
         # Display all agencies and users
@@ -584,7 +608,7 @@ class SuperuserDashboardView(LoginRequiredMixin, SuperuserRequiredMixin, View):
 class InviteStaffView(
     LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionRequiredMixin, FormView
 ):
-    """Allows agency managers or superusers to invite staff members via email."""
+    """Staff invitation handler."""
 
     template_name = "accounts/invite_staff.html"
     form_class = InvitationForm
@@ -678,7 +702,7 @@ class InviteStaffView(
 
 
 class AcceptInvitationView(View):
-    """Allows a user to accept an invitation to join as a staff member."""
+    """Staff invitation acceptance handler."""
 
     def get(self, request, token, *args, **kwargs):
         invitation = get_object_or_404(Invitation, token=token, is_active=True)
@@ -745,6 +769,10 @@ class AcceptInvitationView(View):
                 "accounts:staff_dashboard"
             )  # Redirect to staff dashboard
         else:
+            # Log validation errors for debugging
+            if form.errors:
+                logger.warning(f"Accept invitation form errors: {form.errors}")
+            
             messages.error(request, "Please correct the errors below.")
             logger.warning(
                 f"Invalid acceptance form submitted by {invitation.email}"
@@ -770,7 +798,7 @@ class AcceptInvitationView(View):
 
 @login_required
 def get_address(request):
-    """AJAX view to fetch address details from address_line1."""
+    """AJAX endpoint to fetch address details from address_line1."""
     address_line1 = request.GET.get("address_line1")
     if not address_line1:
         return JsonResponse({"success": False, "message": "No address provided."})
@@ -793,7 +821,7 @@ def get_address(request):
 class AgencyListView(
     LoginRequiredMixin, AgencyOwnerRequiredMixin, SubscriptionRequiredMixin, ListView
 ):
-    """Allows superusers or agency owners to manage agencies."""
+    """Agency listing for management."""
 
     model = Agency
     template_name = "accounts/manage_agencies.html"
@@ -809,7 +837,7 @@ class AgencyListView(
 class AgencyCreateView(
     LoginRequiredMixin, SuperuserRequiredMixin, SubscriptionRequiredMixin, CreateView
 ):
-    """Allows superusers to create a new agency."""
+    """Agency creation handler."""
 
     model = Agency
     form_class = AgencyForm
@@ -834,7 +862,7 @@ class AgencyCreateView(
 class AgencyUpdateView(
     LoginRequiredMixin, AgencyOwnerRequiredMixin, SubscriptionRequiredMixin, UpdateView
 ):
-    """Allows superusers or agency owners to edit their agency."""
+    """Agency editing handler."""
 
     model = Agency
     form_class = AgencyForm
@@ -859,7 +887,7 @@ class AgencyUpdateView(
 class AgencyDeleteView(
     LoginRequiredMixin, SuperuserRequiredMixin, SubscriptionRequiredMixin, DeleteView
 ):
-    """Allows superusers to delete an agency."""
+    """Agency deletion handler."""
 
     model = Agency
     template_name = "accounts/agency_confirm_delete.html"
@@ -881,7 +909,7 @@ class AgencyDeleteView(
 class UserListView(
     LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionRequiredMixin, ListView
 ):
-    """Allows superusers or agency managers to manage users."""
+    """User listing for management."""
 
     model = User
     template_name = "accounts/manage_users.html"
@@ -900,7 +928,7 @@ class UserCreateView(
     SubscriptionRequiredMixin,
     CreateView,
 ):
-    """Allows superusers or agency managers to create a new user."""
+    """User creation handler."""
 
     model = User
     form_class = UserForm
@@ -928,7 +956,7 @@ class UserUpdateView(
     SubscriptionRequiredMixin,
     UpdateView,
 ):
-    """Allows superusers or agency managers to edit an existing user."""
+    """User editing handler."""
 
     model = User
     form_class = UserUpdateForm
@@ -960,7 +988,7 @@ class UserDeleteView(
     SubscriptionRequiredMixin,
     DeleteView,
 ):
-    """Allows superusers or agency managers to delete a user."""
+    """User deactivation handler."""
 
     model = User
     template_name = "accounts/user_confirm_delete.html"
