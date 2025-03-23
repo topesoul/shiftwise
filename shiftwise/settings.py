@@ -75,8 +75,8 @@ INSTALLED_APPS = [
     "home",
     "contact",
     "notifications",
-    # Uncomment the line below if using Django Debug Toolbar
     # 'debug_toolbar',
+    'django_cleanup.apps.CleanupConfig',
 ]
 
 CRISPY_TEMPLATE_PACK = "bootstrap4"
