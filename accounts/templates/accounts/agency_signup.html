@@ -1,4 +1,5 @@
 <!-- /workspace/shiftwise/accounts/templates/accounts/agency_signup.html -->
+
 {% extends 'base.html' %}
 
 {% load static %}
@@ -10,23 +11,148 @@
 
 {% block content %}
 <div class="container my-5">
-    <h2>Agency Sign-Up</h2>
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow">
+                <div class="card-header bg-primary">
+                    <h2 class="h3 mb-0 agency-registration-header text-light">Agency Registration</h2>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <strong>Welcome to ShiftWise!</strong> Please fill out the form below to register your agency. All fields marked with an asterisk (*) are required.
+                    </div>
 
-        <!-- Display non-field errors -->
-        {% if form.non_field_errors %}
-            <div class="alert alert-danger">
-                {{ form.non_field_errors }}
+                    <form method="post" enctype="multipart/form-data" id="agency-signup-form" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Display non-field errors -->
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <!-- Account Information Section -->
+                        <h3 class="h5 border-bottom pb-2 mt-4">Account Information</h3>
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.username|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.email|as_crispy_field }}
+                                <small class="text-muted">This email will be used for account login and personal notifications.</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" id="email-option-section">
+                            <div class="card bg-light mb-3">
+                                <div class="card-body">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="use_same_email" name="use_same_email">
+                                        <label class="form-check-label font-weight-bold" for="use_same_email">
+                                            Use same email for account and agency
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">
+                                        Check this box to use your personal email for both your account and agency business communications.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.password1|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.password2|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.first_name|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.last_name|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <!-- Agency Information Section -->
+                        <h3 class="h5 border-bottom pb-2 mt-4">Agency Information</h3>
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.agency_name|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.agency_type|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.agency_email|as_crispy_field }}
+                                <small class="text-muted">This email will be used for business communications and client-facing correspondence.</small>
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.agency_phone_number|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                {{ form.agency_website|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <!-- Address Section -->
+                        <h3 class="h5 border-bottom pb-2 mt-4">Agency Address</h3>
+                        <div class="row">
+                            <div class="col-md-12">
+                                {{ form.address_line1|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                {{ form.address_line2|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                {{ form.city|as_crispy_field }}
+                            </div>
+                            <div class="col-md-4">
+                                {{ form.county|as_crispy_field }}
+                            </div>
+                            <div class="col-md-4">
+                                {{ form.postcode|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                {{ form.country|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <!-- Hidden fields -->
+                        {{ form.latitude }}
+                        {{ form.longitude }}
+
+                        <!-- Submit and Cancel Buttons -->
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-user-plus mr-1"></i> Register Agency
+                            </button>
+                            <a href="{% url 'home:home' %}" class="btn btn-secondary ml-2">
+                                <i class="fas fa-times mr-1"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
-        {% endif %}
-
-        <!-- Render the form using crispy_forms -->
-        {{ form|crispy }}
-
-        <!-- Submit and Cancel Buttons -->
-        <button type="submit" class="btn btn-primary mt-3">Register Agency</button>
-        <a href="{% url 'home:home' %}" class="btn btn-secondary mt-3">Cancel</a>
-    </form>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/agency_signup.js' %}"></script>
 {% endblock %}
