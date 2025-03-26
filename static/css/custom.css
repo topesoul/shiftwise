@@ -241,6 +241,45 @@
 }
 
 /* =========================================
+   Form elements and address autocomplete styling
+========================================= */
+
+/* Google Place Autocomplete container */
+.pac-container {
+    z-index: 10000 !important;
+}
+
+/* Address autocomplete input styling */
+.address-autocomplete {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+    padding-right: 35px !important;
+}
+
+/* Agency registration header */
+.card-header h2.agency-registration-header {
+    color: var(--dark-color);
+}
+
+/* Ensure dark mode compatibility */
+.dark-mode .card-header h2.agency-registration-header {
+    color: var(--light-color);
+}
+
+/* Form validation styling */
+.is-invalid {
+    border-color: var(--danger-color);
+}
+
+.invalid-feedback {
+    color: var(--danger-color);
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+}
+
+/* =========================================
    Update Profile Modal
 ========================================= */
 
