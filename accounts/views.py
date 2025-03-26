@@ -470,12 +470,13 @@ class ProfileView(LoginRequiredMixin, View):
                 logger.error(f"Error updating profile for user {request.user.username}: {e}")
                 messages.error(request, "An error occurred while updating your profile. Please try again.")
         else:
-            # Log form errors for debugging
+            # Log validation issues for troubleshooting
             if profile_form.errors:
                 logger.warning(f"Profile form errors: {profile_form.errors}")
             if picture_form.errors:
                 logger.warning(f"Picture form errors: {picture_form.errors}")
                 
+        # Handle validation failures and exceptions
         messages.error(request, "Please correct the errors below.")
         context = self.get_context_data(
             profile_form=profile_form, picture_form=picture_form, open_modal=True
