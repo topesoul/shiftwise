@@ -1,5 +1,3 @@
-<!-- accounts\templates\accounts\profile.html -->
-
 {% extends 'base.html' %}
 
 {% load static %}
@@ -10,271 +8,180 @@
 {% block title %}Your Profile | ShiftWise{% endblock %}
 
 {% block content %}
+<div id="profile-data" 
+    data-has-errors="{% if profile_form.errors or picture_form.errors or form.non_field_errors or open_modal %}true{% else %}false{% endif %}"
+    style="display:none;"></div>
+    
 <div class="container my-5">
     <div class="row">
-        <!-- User profile card -->
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Personal Information</h4>
+       <div class="col-lg-4 mb-4">
+          <!-- User information card -->
+          <div class="card shadow-sm">
+             <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Personal Information</h4>
+             </div>
+             <div class="card-body">
+                <div class="text-center mb-3">
+                    {% if user.profile.profile_picture %}
+                       <img src="{{ user.profile.profile_picture.url }}" alt="Profile Picture" class="rounded-circle img-fluid" width="150" height="150">
+                    {% else %}
+                       <img src="{% static 'images/default_profile.png' %}" alt="Default Profile Picture" class="rounded-circle img-fluid" width="150" height="150">
+                    {% endif %}
                 </div>
-                <div class="card-body">
-                    <div class="text-center mb-3">
-                        {% if user.profile.profile_picture %}
-                            <img src="{{ user.profile.profile_picture.url }}" alt="Profile Picture" class="img-fluid rounded-circle" style="max-width: 150px; max-height: 150px;">
-                        {% else %}
-                            <img src="{% static 'images/default_profile.png' %}" alt="Default Profile Picture" class="img-fluid rounded-circle" style="max-width: 150px; max-height: 150px;">
-                        {% endif %}
-                    </div>
-                    <p><strong>Username:</strong> {{ user.username }}</p>
-                    <p><strong>Email:</strong> {{ user.email }}</p>
-                    <p><strong>Full Name:</strong> {{ user.get_full_name }}</p>
-                    <p><strong>Role:</strong> {{ user.get_role_display }}</p>
-                    <p><strong>Country:</strong> {{ user.profile.country }}</p>
-                    <p><strong>Agency:</strong> {% if user.profile.agency %}{{ user.profile.agency.name }}{% else %}N/A{% endif %}</p>
-                    <button class="btn btn-outline-primary btn-block mt-3" data-toggle="modal" data-target="#updateProfileModal">
-                        <i class="fas fa-edit"></i> Update Profile
-                    </button>
+                <p><strong>Username:</strong> {{ user.username }}</p>
+                <p><strong>Email:</strong> {{ user.email }}</p>
+                <p><strong>Full Name:</strong> {{ user.get_full_name }}</p>
+                <p><strong>Role:</strong> {{ user.get_role_display }}</p>
+                <p><strong>Country:</strong> {{ user.profile.country }}</p>
+                <p><strong>Agency:</strong> {% if user.profile.agency %}{{ user.profile.agency.name }}{% else %}N/A{% endif %}</p>
+                <button class="btn btn-outline-primary btn-block mt-3" data-toggle="modal" data-target="#updateProfileModal">
+                    <i class="fas fa-edit"></i> Update Profile
+                </button>
+             </div>
+          </div>
+       </div>
+
+       <div class="col-lg-8">
+          <div class="mt-5">
+             <h3>Multi-Factor Authentication</h3>
+             {% if user.profile.totp_secret %}
+                <p>MFA is <strong>enabled</strong>.</p>
+                <a href="{% url 'accounts:disable_totp' %}" class="btn btn-danger">Disable MFA</a>
+             {% else %}
+                <p>MFA is <strong>disabled</strong>.</p>
+                <a href="{% url 'accounts:activate_totp' %}" class="btn btn-success">Enable MFA</a>
+             {% endif %}
+          </div>
+
+          <div class="mb-4">
+             <h2 class="h5 mb-3">Upcoming Shifts</h2>
+             {% if upcoming_shifts %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered">
+                       <thead class="thead-light">
+                          <tr>
+                             <th>Shift Date</th>
+                             <th>Shift Name</th>
+                             <th>Agency</th>
+                             <th>Actions</th>
+                          </tr>
+                       </thead>
+                       <tbody>
+                          {% for assignment in upcoming_shifts %}
+                             <tr>
+                                <td>{{ assignment.shift.shift_date|date:"D, d M Y" }}</td>
+                                <td>{{ assignment.shift.name }}</td>
+                                <td>{{ assignment.shift.agency.name }}</td>
+                                <td>
+                                    <a href="{% url 'shifts:shift_detail' assignment.shift.pk %}" class="btn btn-sm btn-info" title="View Shift Details">
+                                       <i class="fas fa-eye"></i> View
+                                    </a>
+                                    {% if not assignment.shift.is_full and assignment.shift.id not in assigned_shift_ids %}
+                                       <form method="post" action="{% url 'shifts:book_shift' assignment.shift.pk %}" style="display:inline;">
+                                          {% csrf_token %}
+                                          <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Are you sure you want to book this shift?');">
+                                             <i class="fas fa-bookmark"></i> Book
+                                          </button>
+                                       </form>
+                                    {% endif %}
+                                </td>
+                             </tr>
+                          {% endfor %}
+                       </tbody>
+                    </table>
                 </div>
-            </div>
-        </div>
+             {% else %}
+                <p class="text-muted">You have no upcoming shifts.</p>
+             {% endif %}
+          </div>
 
-        <div class="col-lg-8">
-            <!-- MFA configuration section -->
-            <div class="mt-5">
-                <h3>Multi-Factor Authentication</h3>
-                {% if user.profile.totp_secret %}
-                    <p>Multi-Factor Authentication is currently <strong>enabled</strong>.</p>
-                    <a href="{% url 'accounts:disable_totp' %}" class="btn btn-danger">Disable MFA</a>
-                {% else %}
-                    <p>Multi-Factor Authentication is currently <strong>disabled</strong>.</p>
-                    <a href="{% url 'accounts:activate_totp' %}" class="btn btn-success">Enable MFA</a>
-                {% endif %}
-            </div>
-
-            <!-- Upcoming shifts list -->
-            <div class="mb-4">
-                <h2 class="h5 mb-3">Upcoming Shifts</h2>
-                {% if upcoming_shifts %}
-                    <div class="table-responsive">
-                        <table class="table table-hover table-bordered">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>Shift Date</th>
-                                    <th>Shift Name</th>
-                                    <th>Agency</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for assignment in upcoming_shifts %}
-                                    <tr>
-                                        <td>{{ assignment.shift.shift_date|date:"D, d M Y" }}</td>
-                                        <td>{{ assignment.shift.name }}</td>
-                                        <td>{{ assignment.shift.agency.name }}</td>
-                                        <td>
-                                            <a href="{% url 'shifts:shift_detail' assignment.shift.pk %}" class="btn btn-sm btn-info" title="View Shift Details">
-                                                <i class="fas fa-eye"></i> View
-                                            </a>
-                                            {% if not assignment.shift.is_full and assignment.shift.id not in assigned_shift_ids %}
-                                                <form method="post" action="{% url 'shifts:book_shift' assignment.shift.pk %}" style="display:inline;">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Are you sure you want to book this shift?');">
-                                                        <i class="fas fa-bookmark"></i> Book
-                                                    </button>
-                                                </form>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <p class="text-muted">You have no upcoming shifts.</p>
-                {% endif %}
-            </div>
-
-            <!-- Historical shift data -->
-            <div>
-                <h2 class="h5 mb-3">Past Shifts</h2>
-                {% if past_shifts %}
-                    <div class="table-responsive">
-                        <table class="table table-hover table-bordered">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>Shift Date</th>
-                                    <th>Shift Name</th>
-                                    <th>Agency</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for assignment in past_shifts %}
-                                    <tr>
-                                        <td>{{ assignment.shift.shift_date|date:"D, d M Y" }}</td>
-                                        <td>{{ assignment.shift.name }}</td>
-                                        <td>{{ assignment.shift.agency.name }}</td>
-                                        <td>
-                                            {% if assignment.shift.is_completed %}
-                                                <span class="badge badge-success">Completed</span>
-                                            {% else %}
-                                                <span class="badge badge-warning">Incomplete</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <p class="text-muted">You have no past shifts.</p>
-                {% endif %}
-            </div>
-        </div>
+          <div>
+             <h2 class="h5 mb-3">Past Shifts</h2>
+             {% if past_shifts %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered">
+                       <thead class="thead-light">
+                          <tr>
+                             <th>Shift Date</th>
+                             <th>Shift Name</th>
+                             <th>Agency</th>
+                             <th>Status</th>
+                          </tr>
+                       </thead>
+                       <tbody>
+                          {% for assignment in past_shifts %}
+                             <tr>
+                                <td>{{ assignment.shift.shift_date|date:"D, d M Y" }}</td>
+                                <td>{{ assignment.shift.name }}</td>
+                                <td>{{ assignment.shift.agency.name }}</td>
+                                <td>
+                                    {% if assignment.shift.is_completed %}
+                                       <span class="badge badge-success">Completed</span>
+                                    {% else %}
+                                       <span class="badge badge-warning">Incomplete</span>
+                                    {% endif %}
+                                </td>
+                             </tr>
+                          {% endfor %}
+                       </tbody>
+                    </table>
+                </div>
+             {% else %}
+                <p class="text-muted">You have no past shifts.</p>
+             {% endif %}
+          </div>
+       </div>
     </div>
 </div>
 
-<!-- Profile update modal -->
+<!-- Profile update dialog -->
 <div class="modal fade" id="updateProfileModal" tabindex="-1" role="dialog" aria-labelledby="updateProfileModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
-      <div class="modal-content">
-        <form method="post" enctype="multipart/form-data">
-          {% csrf_token %}
-          <div class="modal-header"></div>
-            <h5 class="modal-title" id="updateProfileModalLabel">Update Your Profile</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body"></div>
-            {# Non-field errors #}
-            {% if profile_form.non_field_errors or picture_form.non_field_errors %}
-                <div class="alert alert-danger">
-                    {{ profile_form.non_field_errors }}
-                    {{ picture_form.non_field_errors }}
-                </div>
-            {% endif %}
-            
-            <h5>Personal Information</h5>
-            <div class="alert alert-warning">
-                <strong>Required fields:</strong> Address Line 1, City, and Postcode are required.
-            </div>
-            
-            <div class="form-group">
-                <label for="{{ profile_form.address_line1.id_for_label }}">Address Line 1*:</label>
-                {{ profile_form.address_line1 }}
-                {% if profile_form.address_line1.errors %}
-                    <div class="invalid-feedback d-block">
-                        {{ profile_form.address_line1.errors }}
-                    </div>
-                {% endif %}
-            </div>
-            
-            <div class="form-group">
-                <label for="{{ profile_form.address_line2.id_for_label }}">Address Line 2:</label>
-                {{ profile_form.address_line2 }}
-                {% if profile_form.address_line2.errors %}
-                    <div class="invalid-feedback d-block">
-                        {{ profile_form.address_line2.errors }}
-                    </div>
-                {% endif %}
-            </div>
-            
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label for="{{ profile_form.city.id_for_label }}">City*:</label>
-                        {{ profile_form.city }}
-                        {% if profile_form.city.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ profile_form.city.errors }}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label for="{{ profile_form.county.id_for_label }}">County:</label>
-                        {{ profile_form.county }}
-                        {% if profile_form.county.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ profile_form.county.errors }}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label for="{{ profile_form.postcode.id_for_label }}">Postcode*:</label>
-                        {{ profile_form.postcode }}
-                        {% if profile_form.postcode.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ profile_form.postcode.errors }}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="{{ profile_form.country.id_for_label }}">Country:</label>
-                        {{ profile_form.country }}
-                        {% if profile_form.country.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ profile_form.country.errors }}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="{{ profile_form.travel_radius.id_for_label }}">Travel Radius (miles):</label>
-                        {{ profile_form.travel_radius }}
-                        {% if profile_form.travel_radius.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ profile_form.travel_radius.errors }}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            {% if is_agency_owner or is_agency_manager %}
-                {% if 'agency_phone_number' in profile_form.fields %}
-                <div class="form-group">
-                    <label for="{{ profile_form.agency_phone_number.id_for_label }}">Agency Phone Number:</label>
-                    {{ profile_form.agency_phone_number }}
-                    {% if profile_form.agency_phone_number.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ profile_form.agency_phone_number.errors }}
-                        </div>
-                    {% endif %}
-                    <small class="form-text text-muted">Enter phone number in UK format (e.g., +44 1234 567890)</small>
-                </div>
-                {% endif %}
-            {% endif %}
-            
-            <!-- Hidden geocoding fields -->
-            {{ profile_form.latitude }}
-            {{ profile_form.longitude }}
-            
-            <h5 class="mt-4">Update Profile Picture</h5>
-            {{ picture_form|crispy }}
-          </div>
-          <div class="modal-footer">
-            <button type="submit" class="btn btn-primary">Save Changes</button>
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-          </div>
-        </form>
-      </div>
+     <div class="modal-content">
+       <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="updateProfileModalLabel">Update Your Profile</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          {% if profile_form.non_field_errors or picture_form.non_field_errors %}
+             <div class="alert alert-danger">
+                {{ profile_form.non_field_errors }}
+                {{ picture_form.non_field_errors }}
+             </div>
+          {% endif %}
+
+          <h5>Personal Information</h5>
+          {{ profile_form|crispy }}
+          
+          <h5 class="mt-4">Update Profile Picture</h5>
+          {{ picture_form|crispy }}
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        </div>
+       </form>
+     </div>
     </div>
 </div>
 
-<!-- External JS dependencies -->
-<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_PLACES_API_KEY }}&libraries=places"></script>
-<script src="{% static 'js/address_autocomplete.js' %}"></script>
+<script>
+    // Open modal if form errors exist
+    document.addEventListener('DOMContentLoaded', function() {
+       var profileData = document.getElementById('profile-data');
+       if (profileData && profileData.dataset.hasErrors === 'true') {
+          if (typeof $ !== 'undefined') {
+             $('#updateProfileModal').modal('show');
+          }
+       }
+    });
+</script>
+{% endblock %}
+
+{% block extra_js %}
 <script src="{% static 'js/profile.js' %}"></script>
 {% endblock %}
