@@ -96,6 +96,22 @@ MIDDLEWARE = [
     "subscriptions.middleware.SubscriptionSyncMiddleware",
 ]
 
+# -----------------------------------------------------------------------------
+# Message Framework Configuration
+# -----------------------------------------------------------------------------
+
+from django.contrib.messages import constants as messages
+
+MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
+
+MESSAGE_TAGS = {
+    messages.DEBUG: 'alert-info',
+    messages.INFO: 'alert-info',
+    messages.SUCCESS: 'alert-success',
+    messages.WARNING: 'alert-warning',
+    messages.ERROR: 'alert-danger',
+}
+
 ROOT_URLCONF = "shiftwise.urls"
 
 SITE_URL = os.getenv("SITE_URL")
