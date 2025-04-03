@@ -328,6 +328,10 @@ class ShiftAssignment(TimestampedModel):
         """
         super().clean()
 
+        # Skip agency validation for superusers
+        if self.worker.is_superuser:
+            return
+
         # Ensure worker's profile has an agency
         if not hasattr(self.worker, "profile") or not self.worker.profile.agency:
             raise ValidationError(
@@ -350,7 +354,9 @@ class ShiftAssignment(TimestampedModel):
         """
         Overrides the save method to ensure clean is called.
         """
-        self.clean()
+        bypass_validation = kwargs.pop("bypass_validation", False)
+        if not bypass_validation:
+            self.clean()
         super().save(*args, **kwargs)
 
 
