@@ -7,7 +7,9 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.mail import send_mail
+from django.http import JsonResponse
 from django.urls import reverse
 
 logger = logging.getLogger(__name__)
@@ -88,3 +90,26 @@ def send_email_notification(
         )
     except Exception as e:
         logger.exception(f"Failed to send email notification to {user_email}: {e}")
+
+
+def ajax_response_with_message(success, message, data=None):
+    """
+    Creates a standardized JSON response for AJAX views, including message text.
+    
+    Args:
+        success (bool): Whether the operation was successful
+        message (str): Message to display to the user
+        data (dict, optional): Additional data to return
+        
+    Returns:
+        JsonResponse: A standardized JSON response
+    """
+    response_data = {
+        'success': success,
+        'message': message
+    }
+    
+    if data:
+        response_data.update(data)
+        
+    return JsonResponse(response_data)
