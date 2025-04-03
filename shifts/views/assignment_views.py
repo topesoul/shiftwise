@@ -5,11 +5,13 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.views import View
 
 from core.mixins import AgencyManagerRequiredMixin, FeatureRequiredMixin
 from shifts.forms import AssignWorkerForm
 from shifts.models import Shift, ShiftAssignment, User
+from core.utils import ajax_response_with_message
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -29,76 +31,80 @@ class AssignWorkerView(
         user = request.user
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
 
+        # Check if this is an AJAX request
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
         # Extract worker ID and role from POST data
         worker_id = request.POST.get("worker")
         role = request.POST.get("role") or "Staff"  # Default role
 
         if not worker_id:
-            messages.error(request, "Worker field is required to assign.")
-            logger.warning(
-                f"Missing worker ID in assignment by {user.username} for shift {shift.id}."
-            )
-            return redirect("shifts:shift_detail", pk=shift.id)
+            if is_ajax:
+                return ajax_response_with_message(False, "Worker field is required to assign.")
+            else:
+                messages.error(request, "Worker field is required to assign.")
+                return redirect("shifts:shift_detail", pk=shift.id)
 
         worker = get_object_or_404(User, id=worker_id)
 
         # Permission check: Ensure worker belongs to the same agency
         if not user.is_superuser and worker.profile.agency != shift.agency:
-            messages.error(
-                request, "You cannot assign workers from a different agency."
-            )
-            logger.warning(
-                f"User {user.username} attempted to assign worker {worker.username} from a different agency to shift {shift.id}."
-            )
-            return redirect("shifts:shift_detail", pk=shift.id)
+            if is_ajax:
+                return ajax_response_with_message(False, "You cannot assign workers from a different agency.")
+            else:
+                messages.error(request, "You cannot assign workers from a different agency.")
+                return redirect("shifts:shift_detail", pk=shift.id)
 
         # Check if the shift is already full
         if shift.is_full:
-            messages.error(request, "Cannot assign worker. The shift is already full.")
-            logger.warning(
-                f"Attempt to assign worker to full shift {shift.id} by {user.username}."
-            )
-            return redirect("shifts:shift_detail", pk=shift.id)
+            if is_ajax:
+                return ajax_response_with_message(False, "Cannot assign worker. The shift is already full.")
+            else:
+                messages.error(request, "Cannot assign worker. The shift is already full.")
+                return redirect("shifts:shift_detail", pk=shift.id)
 
         # Check if the worker is already assigned to the shift
         if ShiftAssignment.objects.filter(shift=shift, worker=worker).exists():
-            messages.error(
-                request,
-                f"Worker {worker.get_full_name()} is already assigned to this shift.",
-            )
-            logger.warning(
-                f"Attempt to reassign worker {worker.username} to shift {shift.id} by {user.username}."
-            )
-            return redirect("shifts:shift_detail", pk=shift.id)
+            if is_ajax:
+                return ajax_response_with_message(False, f"Worker {worker.get_full_name()} is already assigned to this shift.")
+            else:
+                messages.error(request, f"Worker {worker.get_full_name()} is already assigned to this shift.")
+                return redirect("shifts:shift_detail", pk=shift.id)
 
         # Validate role
         if role not in dict(ShiftAssignment.ROLE_CHOICES).keys():
-            messages.error(request, "Invalid role selected.")
-            logger.warning(
-                f"Invalid role '{role}' selected by {user.username} for worker {worker.id}."
-            )
-            return redirect("shifts:shift_detail", pk=shift.id)
+            if is_ajax:
+                return ajax_response_with_message(False, "Invalid role selected.")
+            else:
+                messages.error(request, "Invalid role selected.")
+                return redirect("shifts:shift_detail", pk=shift.id)
 
         # Create the ShiftAssignment
         try:
             ShiftAssignment.objects.create(
                 shift=shift, worker=worker, role=role, status=ShiftAssignment.CONFIRMED
             )
-            messages.success(
-                request,
-                f"Worker {worker.get_full_name()} has been successfully assigned to the shift with role '{role}'.",
-            )
-            logger.info(
-                f"Worker {worker.username} assigned to shift {shift.id} with role '{role}' by {user.username}."
-            )
+            
+            success_message = f"Worker {worker.get_full_name()} has been successfully assigned to the shift with role '{role}'."
+            
+            if is_ajax:
+                return ajax_response_with_message(
+                    True, 
+                    success_message,
+                    {'redirect': reverse('shifts:shift_detail', kwargs={'pk': shift.id})}
+                )
+            else:
+                messages.success(request, success_message)
+                logger.info(f"Worker {worker.username} assigned to shift {shift.id} with role '{role}' by {user.username}.")
+                return redirect("shifts:shift_detail", pk=shift.id)
+                
         except Exception as e:
-            messages.error(
-                request,
-                "An unexpected error occurred while assigning the worker.",
-            )
-            logger.exception(f"Unexpected error when assigning worker: {e}")
-
-        return redirect("shifts:shift_detail", pk=shift.id)
+            if is_ajax:
+                return ajax_response_with_message(False, "An unexpected error occurred while assigning the worker.")
+            else:
+                messages.error(request, "An unexpected error occurred while assigning the worker.")
+                logger.exception(f"Unexpected error when assigning worker: {e}")
+                return redirect("shifts:shift_detail", pk=shift.id)
 
 
 class UnassignWorkerView(
