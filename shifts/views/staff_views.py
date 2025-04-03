@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import Group
+from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import Count, ExpressionWrapper, F, FloatField, Q, Sum
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -124,6 +125,7 @@ class StaffCreateView(
     AgencyManagerRequiredMixin,
     SubscriptionRequiredMixin,
     FeatureRequiredMixin,
+    SuccessMessageMixin,
     CreateView,
 ):
     """
@@ -136,6 +138,7 @@ class StaffCreateView(
     form_class = StaffCreationForm
     template_name = "shifts/add_staff.html"
     success_url = reverse_lazy("shifts:staff_list")
+    success_message = "Staff member has been added successfully."
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -171,7 +174,7 @@ class StaffCreateView(
         # Add to 'Agency Staff' group
         agency_staff_group, _ = Group.objects.get_or_create(name="Agency Staff")
         user.groups.add(agency_staff_group)
-        messages.success(self.request, "Staff member added successfully.")
+        # Success message handled by mixin
         logger.info(
             f"Staff member {user.username} added by {self.request.user.username}."
         )
@@ -183,6 +186,7 @@ class StaffUpdateView(
     AgencyManagerRequiredMixin,
     SubscriptionRequiredMixin,
     FeatureRequiredMixin,
+    SuccessMessageMixin,
     UpdateView,
 ):
     """
@@ -195,6 +199,7 @@ class StaffUpdateView(
     form_class = StaffUpdateForm
     template_name = "shifts/edit_staff.html"
     success_url = reverse_lazy("shifts:staff_list")
+    success_message = "Staff details have been updated successfully."
 
     def dispatch(self, request, *args, **kwargs):
         """
@@ -212,7 +217,7 @@ class StaffUpdateView(
 
     def form_valid(self, form):
         user = form.save()
-        messages.success(self.request, "Staff details updated successfully.")
+        # Success message handled by mixin
         logger.info(
             f"Staff member {user.username} updated by {self.request.user.username}."
         )
@@ -224,6 +229,7 @@ class StaffDeleteView(
     AgencyManagerRequiredMixin,
     SubscriptionRequiredMixin,
     FeatureRequiredMixin,
+    SuccessMessageMixin,
     DeleteView,
 ):
     """
@@ -235,6 +241,7 @@ class StaffDeleteView(
     model = User
     template_name = "shifts/delete_staff.html"
     success_url = reverse_lazy("shifts:staff_list")
+    success_message = "Staff member has been deactivated successfully."
 
     def dispatch(self, request, *args, **kwargs):
         """
@@ -254,7 +261,7 @@ class StaffDeleteView(
         staff_member = self.get_object()
         staff_member.is_active = False
         staff_member.save()
-        messages.success(request, "Staff member deactivated successfully.")
+        self.success_message = f'Staff member "{staff_member.username}" has been deactivated successfully.'
         logger.info(
             f"Staff member {staff_member.username} deactivated by user {request.user.username}."
         )
