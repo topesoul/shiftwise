@@ -1,0 +1,103 @@
+/* =========================================
+   Message Container and Alerts
+========================================= */
+
+#message-container {
+    position: relative;
+    margin-bottom: 1.5rem;
+    width: 100%;
+    z-index: 1000;
+}
+
+#message-container .alert {
+    margin-bottom: 0.75rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow-light);
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+    border-left: 4px solid transparent;
+}
+
+#message-container .alert-success {
+    border-left-color: var(--success-color);
+    background-color: rgba(46, 204, 113, 0.1);
+}
+
+#message-container .alert-info {
+    border-left-color: var(--info-color);
+    background-color: rgba(23, 162, 184, 0.1);
+}
+
+#message-container .alert-warning {
+    border-left-color: var(--warning-color);
+    background-color: rgba(243, 156, 18, 0.1);
+}
+
+#message-container .alert-danger {
+    border-left-color: var(--danger-color);
+    background-color: rgba(231, 76, 60, 0.1);
+}
+
+#message-container .alert .close {
+    padding: 0.5rem;
+    color: var(--text-color);
+    opacity: 0.7;
+    transition: opacity var(--transition-speed);
+}
+
+#message-container .alert .close:hover {
+    opacity: 1;
+}
+
+/* Animation for new messages */
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#message-container .alert.show {
+    animation: messageSlideIn 0.3s ease-out forwards;
+}
+
+/* Dark mode adjustments */
+.dark-mode #message-container .alert {
+    background-color: #2c2c2c;
+    color: #ffffff;
+}
+
+.dark-mode #message-container .alert-success {
+    border-left-color: var(--success-color);
+    background-color: rgba(46, 204, 113, 0.2);
+}
+
+.dark-mode #message-container .alert-info {
+    border-left-color: var(--info-color);
+    background-color: rgba(23, 162, 184, 0.2);
+}
+
+.dark-mode #message-container .alert-warning {
+    border-left-color: var(--warning-color);
+    background-color: rgba(243, 156, 18, 0.2);
+}
+
+.dark-mode #message-container .alert-danger {
+    border-left-color: var(--danger-color);
+    background-color: rgba(231, 76, 60, 0.2);
+}
+
+.dark-mode #message-container .alert .close {
+    color: #ffffff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #message-container .alert {
+        padding: 0.75rem;
+        font-size: var(--font-size-sm);
+    }
+}
