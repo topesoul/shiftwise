@@ -21,8 +21,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // For AJAX operations, add message display function
     window.displayMessage = function(message, messageType) {
-        const messageContainer = document.getElementById('message-container');
-        if (!messageContainer) return;
+        let messageContainer = document.getElementById('message-container');
+        if (!messageContainer) {
+            // Create container if it doesn't exist
+            const mainContainer = document.querySelector('main.container');
+            if (!mainContainer) return;
+            
+            const newContainer = document.createElement('div');
+            newContainer.id = 'message-container';
+            newContainer.className = 'message-container';
+            
+            mainContainer.insertBefore(newContainer, mainContainer.firstChild);
+            messageContainer = newContainer;
+        }
         
         const alertClass = {
             'success': 'alert-success',
