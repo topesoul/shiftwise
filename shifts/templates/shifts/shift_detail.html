@@ -168,6 +168,12 @@
                                                 </button>
                                             </form>
                                         {% endif %}
+                                        {% if can_assign_workers and not shift.is_completed %}
+                                            <a href="{% url 'shifts:complete_shift_for_user' shift.id assignment.worker.id %}" 
+                                               class="btn btn-sm btn-warning" title="Complete for this worker">
+                                                <i class="fas fa-clipboard-check"></i> Complete for Worker
+                                            </a>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
