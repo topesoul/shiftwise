@@ -324,6 +324,7 @@ class ShiftCreateView(
     AgencyManagerRequiredMixin,
     SubscriptionRequiredMixin,
     FeatureRequiredMixin,
+    SuccessMessageMixin,
     CreateView,
 ):
     """
@@ -336,6 +337,7 @@ class ShiftCreateView(
     form_class = ShiftForm
     template_name = "shifts/shift_form.html"
     success_url = reverse_lazy("shifts:shift_list")
+    success_message = "Shift has been created successfully."
 
     def dispatch(self, request, *args, **kwargs):
         """
@@ -398,7 +400,7 @@ class ShiftCreateView(
         shift.save()
         form.save_m2m()
 
-        messages.success(self.request, "Shift created successfully.")
+        # Success message handled by SuccessMessageMixin
         logger.info(
             f"Shift '{shift.name}' created by {self.request.user.username} for agency {agency.name}."
         )
@@ -416,6 +418,7 @@ class ShiftUpdateView(
     AgencyManagerRequiredMixin,
     SubscriptionRequiredMixin,
     FeatureRequiredMixin,
+    SuccessMessageMixin,
     UpdateView,
 ):
     """
@@ -428,6 +431,7 @@ class ShiftUpdateView(
     form_class = ShiftForm
     template_name = "shifts/shift_form.html"
     success_url = reverse_lazy("shifts:shift_list")
+    success_message = "Shift has been updated successfully."
 
     def get_form_kwargs(self):
         """
@@ -453,7 +457,7 @@ class ShiftUpdateView(
         shift.save()
         form.save_m2m()
 
-        messages.success(self.request, "Shift updated successfully.")
+        # Success message handled by SuccessMessageMixin
         logger.info(f"Shift '{shift.name}' updated by {self.request.user.username}.")
         return super().form_valid(form)
 
