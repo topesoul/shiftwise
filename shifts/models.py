@@ -162,22 +162,22 @@ class Shift(TimestampedModel):
             if self.shift_date and self.shift_date < timezone.now().date():
                 raise ValidationError("Shift date cannot be in the past.")
 
-        # Ensure end date is provided
+        # Ensure all date and time fields are provided
+        if not self.shift_date:
+            raise ValidationError("Shift date must be provided.")
+        
         if not self.end_date:
             raise ValidationError("End date must be provided.")
+        
+        if not self.start_time:
+            raise ValidationError("Start time must be provided.")
+        
+        if not self.end_time:
+            raise ValidationError("End time must be provided.")
 
         # Ensure end date is not before shift date
-        if self.end_date < self.shift_date:
+        if self.end_date and self.shift_date and self.end_date < self.shift_date:
             raise ValidationError("End date cannot be before shift date.")
-
-        # Ensure all date and time fields are provided
-        if (
-            not self.shift_date
-            or not self.end_date
-            or not self.start_time
-            or not self.end_time
-        ):
-            raise ValidationError("All date and time fields must be provided.")
 
         # Combine start and end datetime objects
         start_dt = timezone.make_aware(
