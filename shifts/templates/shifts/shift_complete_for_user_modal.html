@@ -1,4 +1,4 @@
-/workspaces/shiftwise/shifts/templates/shifts/shift_complete_for_user_modal.html
+<!-- /workspace/shiftwise/shifts/templates/shifts/shift_complete_for_user_modal.html -->
 {% extends 'base.html' %}
 
 {% load static %}
@@ -17,74 +17,43 @@
                 <i class="fas fa-info-circle"></i> You are completing shift <strong>{{ shift.name }}</strong> on behalf of <strong>{{ user_to_complete.get_full_name }}</strong>.
             </div>
             
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <h5>Shift Details</h5>
-                    <p><strong>Date:</strong> {{ shift.shift_date|date:"D, d M Y" }}</p>
-                    <p><strong>Time:</strong> {{ shift.start_time|time:"H:i" }} - {{ shift.end_time|time:"H:i" }}</p>
-                    <p><strong>Location:</strong> {{ shift.address_line1 }}, {{ shift.city }}</p>
-                </div>
-                <div class="col-md-6">
-                    <h5>Worker Details</h5>
-                    <p><strong>Name:</strong> {{ user_to_complete.get_full_name }}</p>
-                    <p><strong>Email:</strong> {{ user_to_complete.email }}</p>
-                    <p><strong>Agency:</strong> {{ user_to_complete.profile.agency.name }}</p>
-                </div>
-            </div>
-            
-            <form method="post" id="shiftCompletionForm">
+            <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 
-                <div class="form-row">
-                    <div class="col-md-12 mb-3">
-                        <h5>Attendance Status</h5>
-                        {{ form.attendance_status|as_crispy_field }}
-                    </div>
+                <!-- Signature Pad -->
+                <div class="form-group">
+                    <label for="signaturePad">Signature:</label>
+                    <canvas id="signaturePad" class="signaturePad mb-2"></canvas>
+                    <button type="button" class="btn btn-secondary btn-sm clearSignature">Clear Signature</button>
+                    <input type="hidden" name="signature" class="signatureInput">
                 </div>
                 
-                <div class="form-row mb-4">
-                    <div class="col-md-12">
-                        <h5>Digital Signature</h5>
-                        <p class="text-muted">Please sign below to confirm completion</p>
-                        <div class="signature-pad-container">
-                            <canvas id="signaturePad" class="signature-pad border" width="600" height="200" style="width: 100%; height: 200px; border: 1px solid #ccc; border-radius: 4px;"></canvas>
-                            <input type="hidden" name="signature" id="signatureData">
-                        </div>
-                        <div class="mt-2">
-                            <button type="button" class="btn btn-sm btn-secondary" id="clearSignature">Clear Signature</button>
-                        </div>
-                    </div>
+                <!-- Location Fields -->
+                <div class="form-group">
+                    <button type="button" class="btn btn-info btn-sm getLocation">Get Current Location</button>
+                    <small class="form-text text-muted">Location verification is required for shift completion.</small>
+                    <div id="locationStatus"></div>
                 </div>
                 
-                <div class="form-row mb-4">
-                    <div class="col-md-12">
-                        <h5>Location Verification</h5>
-                        <div class="form-group">
-                            <div class="custom-control custom-checkbox">
-                                <input type="checkbox" class="custom-control-input" id="useCurrentLocation" checked>
-                                <label class="custom-control-label" for="useCurrentLocation">Use current location</label>
-                            </div>
-                        </div>
-                        
-                        <input type="hidden" name="latitude" id="latitudeInput">
-                        <input type="hidden" name="longitude" id="longitudeInput">
-                        
-                        <div id="locationStatus" class="alert alert-info">
-                            <i class="fas fa-spinner fa-spin"></i> Determining your location...
-                        </div>
-                    </div>
+                <input type="hidden" name="latitude" id="id_shift_completion_latitude">
+                <input type="hidden" name="longitude" id="id_shift_completion_longitude">
+                
+                <!-- Address Confirmation -->
+                <div class="form-group">
+                    <label for="id_confirm_address">Completion Address:</label>
+                    <input type="text" id="id_confirm_address" class="form-control" readonly>
                 </div>
                 
-                <div class="form-row">
-                    <div class="col-md-12">
-                        <button type="submit" class="btn btn-warning btn-lg" id="completeButton" disabled>
-                            <i class="fas fa-clipboard-check"></i> Complete Shift for {{ user_to_complete.get_full_name }}
-                        </button>
-                        <a href="{% url 'shifts:shift_detail' pk=shift.id %}" class="btn btn-secondary btn-lg">
-                            <i class="fas fa-times"></i> Cancel
-                        </a>
-                    </div>
+                <!-- Attendance Status -->
+                <div class="form-group">
+                    <label for="id_attendance_status">Attendance Status:</label>
+                    {{ form.attendance_status }}
                 </div>
+                
+                <button type="submit" class="btn btn-success" id="completeButton">
+                    <i class="fas fa-clipboard-check"></i> Complete Shift for {{ user_to_complete.get_full_name }}
+                </button>
+                <a href="{% url 'shifts:shift_detail' shift.id %}" class="btn btn-secondary">Cancel</a>
             </form>
         </div>
     </div>
@@ -92,376 +61,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Include necessary JS libraries -->
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-
-<!-- Include the Shift Completion Modal JavaScript -->
-<script src="{% static 'js/shift_complete_modal.js' %}"></script>
-
-<!-- Set custom button text for "complete for user" scenario -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Set the button text to indicate completing for another user
-        const completeButton = document.getElementById('completeButton');
-        if (completeButton) {
-            completeButton.innerHTML = '<i class="fas fa-clipboard-check"></i> Complete Shift for {{ user_to_complete.get_full_name }}';
-        }
-    });
-</script>
-{% endblock %}
-{% extends 'base.html' %}
-
-{% load static %}
-{% load crispy_forms_tags %}
-
-{% block title %}Complete Shift for {{ user_to_complete.get_full_name }}{% endblock %}
-
-{% block content %}
-<div class="container">
-    <div class="card mb-4">
-        <div class="card-header bg-warning text-white">
-            <h4 class="mb-0">Complete Shift for {{ user_to_complete.get_full_name }}</h4>
-        </div>
-        <div class="card-body">
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> You are completing shift <strong>{{ shift.name }}</strong> on behalf of <strong>{{ user_to_complete.get_full_name }}</strong>.
-            </div>
-            
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <h5>Shift Details</h5>
-                    <p><strong>Date:</strong> {{ shift.shift_date|date:"D, d M Y" }}</p>
-                    <p><strong>Time:</strong> {{ shift.start_time|time:"H:i" }} - {{ shift.end_time|time:"H:i" }}</p>
-                    <p><strong>Location:</strong> {{ shift.address_line1 }}, {{ shift.city }}</p>
-                </div>
-                <div class="col-md-6">
-                    <h5>Worker Details</h5>
-                    <p><strong>Name:</strong> {{ user_to_complete.get_full_name }}</p>
-                    <p><strong>Email:</strong> {{ user_to_complete.email }}</p>
-                    <p><strong>Agency:</strong> {{ user_to_complete.profile.agency.name }}</p>
-                </div>
-            </div>
-            
-            <form method="post" id="shiftCompletionForm">
-                {% csrf_token %}
-                
-                <div class="form-row">
-                    <div class="col-md-12 mb-3">
-                        <h5>Attendance Status</h5>
-                        {{ form.attendance_status|as_crispy_field }}
-                    </div>
-                </div>
-                
-                <div class="form-row mb-4">
-                    <div class="col-md-12">
-                        <h5>Digital Signature</h5>
-                        <p class="text-muted">Please sign below to confirm completion</p>
-                        <div class="signature-pad-container">
-                            <canvas id="signaturePad" class="signature-pad border" width="600" height="200" style="width: 100%; height: 200px; border: 1px solid #ccc; border-radius: 4px;"></canvas>
-                            <input type="hidden" name="signature" id="signatureData">
-                        </div>
-                        <div class="mt-2">
-                            <button type="button" class="btn btn-sm btn-secondary" id="clearSignature">Clear Signature</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-row mb-4">
-                    <div class="col-md-12">
-                        <h5>Location Verification</h5>
-                        <div class="form-group">
-                            <div class="custom-control custom-checkbox">
-                                <input type="checkbox" class="custom-control-input" id="useCurrentLocation" checked>
-                                <label class="custom-control-label" for="useCurrentLocation">Use current location</label>
-                            </div>
-                        </div>
-                        
-                        <input type="hidden" name="latitude" id="latitudeInput">
-                        <input type="hidden" name="longitude" id="longitudeInput">
-                        
-                        <div id="locationStatus" class="alert alert-info">
-                            <i class="fas fa-spinner fa-spin"></i> Determining your location...
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="col-md-12">
-                        <button type="submit" class="btn btn-warning btn-lg" id="completeButton" disabled>
-                            <i class="fas fa-clipboard-check"></i> Complete Shift for {{ user_to_complete.get_full_name }}
-                        </button>
-                        <a href="{% url 'shifts:shift_detail' pk=shift.id %}" class="btn btn-secondary btn-lg">
-                            <i class="fas fa-times"></i> Cancel
-                        </a>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<!-- Include necessary JS libraries -->
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-
-<!-- Include the Shift Completion Modal JavaScript -->
-<script src="{% static 'js/shift_complete_modal.js' %}"></script>
-
-<!-- Set custom button text for "complete for user" scenario -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Set the button text to indicate completing for another user
-        const completeButton = document.getElementById('completeButton');
-        if (completeButton) {
-            completeButton.innerHTML = '<i class="fas fa-clipboard-check"></i> Complete Shift for {{ user_to_complete.get_full_name }}';
-        }
-    });
-</script>
-{% endblock %}
-{% extends 'base.html' %}
-
-{% load static %}
-{% load crispy_forms_tags %}
-
-{% block title %}Complete Shift for {{ user_to_complete.get_full_name }}{% endblock %}
-
-{% block content %}
-<div class="container">
-    <div class="card mb-4">
-        <div class="card-header bg-warning text-white">
-            <h4 class="mb-0">Complete Shift for {{ user_to_complete.get_full_name }}</h4>
-        </div>
-        <div class="card-body">
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> You are completing shift <strong>{{ shift.name }}</strong> on behalf of <strong>{{ user_to_complete.get_full_name }}</strong>.
-            </div>
-            
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <h5>Shift Details</h5>
-                    <p><strong>Date:</strong> {{ shift.shift_date|date:"D, d M Y" }}</p>
-                    <p><strong>Time:</strong> {{ shift.start_time|time:"H:i" }} - {{ shift.end_time|time:"H:i" }}</p>
-                    <p><strong>Location:</strong> {{ shift.address_line1 }}, {{ shift.city }}</p>
-                </div>
-                <div class="col-md-6">
-                    <h5>Worker Details</h5>
-                    <p><strong>Name:</strong> {{ user_to_complete.get_full_name }}</p>
-                    <p><strong>Email:</strong> {{ user_to_complete.email }}</p>
-                    <p><strong>Agency:</strong> {{ user_to_complete.profile.agency.name }}</p>
-                </div>
-            </div>
-            
-            <form method="post" id="shiftCompletionForm">
-                {% csrf_token %}
-                
-                <div class="form-row">
-                    <div class="col-md-12 mb-3">
-                        <h5>Attendance Status</h5>
-                        {{ form.attendance_status|as_crispy_field }}
-                    </div>
-                </div>
-                
-                <div class="form-row mb-4">
-                    <div class="col-md-12">
-                        <h5>Digital Signature</h5>
-                        <p class="text-muted">Please sign below to confirm completion</p>
-                        <div class="signature-pad-container">
-                            <canvas id="signaturePad" class="signature-pad border" width="600" height="200" style="width: 100%; height: 200px; border: 1px solid #ccc; border-radius: 4px;"></canvas>
-                            <input type="hidden" name="signature" id="signatureData">
-                        </div>
-                        <div class="mt-2">
-                            <button type="button" class="btn btn-sm btn-secondary" id="clearSignature">Clear Signature</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-row mb-4">
-                    <div class="col-md-12">
-                        <h5>Location Verification</h5>
-                        <div class="form-group">
-                            <div class="custom-control custom-checkbox">
-                                <input type="checkbox" class="custom-control-input" id="useCurrentLocation" checked>
-                                <label class="custom-control-label" for="useCurrentLocation">Use current location</label>
-                            </div>
-                        </div>
-                        
-                        <input type="hidden" name="latitude" id="latitudeInput">
-                        <input type="hidden" name="longitude" id="longitudeInput">
-                        
-                        <div id="locationStatus" class="alert alert-info">
-                            <i class="fas fa-spinner fa-spin"></i> Determining your location...
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="col-md-12">
-                        <button type="submit" class="btn btn-warning btn-lg" id="completeButton" disabled>
-                            <i class="fas fa-clipboard-check"></i> Complete Shift for {{ user_to_complete.get_full_name }}
-                        </button>
-                        <a href="{% url 'shifts:shift_detail' pk=shift.id %}" class="btn btn-secondary btn-lg">
-                            <i class="fas fa-times"></i> Cancel
-                        </a>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<!-- Include necessary JS libraries -->
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-
-<!-- Include the Shift Completion Modal JavaScript -->
-<script src="{% static 'js/shift_complete_modal.js' %}"></script>
-
-<!-- Set custom button text for "complete for user" scenario -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Set the button text to indicate completing for another user
-        const completeButton = document.getElementById('completeButton');
-        if (completeButton) {
-            completeButton.innerHTML = '<i class="fas fa-clipboard-check"></i> Complete Shift for {{ user_to_complete.get_full_name }}';
-        }
-    });
-</script>
-{% endblock %}
-{% extends 'base.html' %}
-
-{% load static %}
-{% load crispy_forms_tags %}
-
-{% block title %}Complete Shift for {{ user_to_complete.get_full_name }}{% endblock %}
-
-{% block content %}
-<div class="container">
-    <div class="card mb-4">
-        <div class="card-header bg-warning text-white">
-            <h4 class="mb-0">Complete Shift for {{ user_to_complete.get_full_name }}</h4>
-        </div>
-        <div class="card-body">
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> You are completing shift <strong>{{ shift.name }}</strong> on behalf of <strong>{{ user_to_complete.get_full_name }}</strong>.
-            </div>
-            
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <h5>Shift Details</h5>
-                    <p><strong>Date:</strong> {{ shift.shift_date|date:"D, d M Y" }}</p>
-                    <p><strong>Time:</strong> {{ shift.start_time|time:"H:i" }} - {{ shift.end_time|time:"H:i" }}</p>
-                    <p><strong>Location:</strong> {{ shift.address_line1 }}, {{ shift.city }}</p>
-                </div>
-                <div class="col-md-6">
-                    <h5>Worker Details</h5>
-                    <p><strong>Name:</strong> {{ user_to_complete.get_full_name }}</p>
-                    <p><strong>Email:</strong> {{ user_to_complete.email }}</p>
-                    <p><strong>Agency:</strong> {{ user_to_complete.profile.agency.name }}</p>
-                </div>
-            </div>
-            
-            <form method="post" id="shiftCompletionForm">
-                {% csrf_token %}
-                
-                <div class="form-row">
-                    <div class="col-md-12 mb-3">
-                        <h5>Attendance Status</h5>
-                        {{ form.attendance_status|as_crispy_field }}
-                    </div>
-                </div>
-                
-                <div class="form-row mb-4">
-                    <div class="col-md-12">
-                        <h5>Digital Signature</h5>
-                        <p class="text-muted">Please sign below to confirm completion</p>
-                        <div class="signature-pad-container">
-                            <canvas id="signaturePad" class="signature-pad border" width="600" height="200" style="width: 100%; height: 200px; border: 1px solid #ccc; border-radius: 4px;"></canvas>
-                            <input type="hidden" name="signature" id="signatureData">
-                        </div>
-                        <div class="mt-2">
-                            <button type="button" class="btn btn-sm btn-secondary" id="clearSignature">Clear Signature</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-row mb-4">
-                    <div class="col-md-12">
-                        <h5>Location Verification</h5>
-                        <div class="form-group">
-                            <div class="custom-control custom-checkbox">
-                                <input type="checkbox" class="custom-control-input" id="useCurrentLocation" checked>
-                                <label class="custom-control-label" for="useCurrentLocation">Use current location</label>
-                            </div>
-                        </div>
-                        
-                        <input type="hidden" name="latitude" id="latitudeInput">
-                        <input type="hidden" name="longitude" id="longitudeInput">
-                        
-                        <div id="locationStatus" class="alert alert-info">
-                            <i class="fas fa-spinner fa-spin"></i> Determining your location...
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="col-md-12">
-                        <button type="submit" class="btn btn-warning btn-lg" id="completeButton" disabled>
-                            <i class="fas fa-clipboard-check"></i> Complete Shift for {{ user_to_complete.get_full_name }}
-                        </button>
-                        <a href="{% url 'shifts:shift_detail' pk=shift.id %}" class="btn btn-secondary btn-lg">
-                            <i class="fas fa-times"></i> Cancel
-                        </a>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<!-- Include necessary JS libraries -->
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-
-<!-- Include the Shift Completion Modal JavaScript -->
-<script src="{% static 'js/shift_complete_modal.js' %}"></script>
-
-<!-- Add additional script for for-user specific functionality -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Set page-specific content for the complete-for-user view
-        // This code runs after the shift_complete_modal.js functionality is initialized
-        
-        // Update the form submission button text
-        const completeButton = document.getElementById('completeButton');
-        if (completeButton) {
-            completeButton.innerHTML = '<i class="fas fa-clipboard-check"></i> Complete Shift for {{ user_to_complete.get_full_name }}';
-        }
-        
-        // Add extra validation if needed for the complete-for-user flow
-        const shiftCompletionForm = document.getElementById('shiftCompletionForm');
-        if (shiftCompletionForm) {
-            const originalSubmit = shiftCompletionForm.onsubmit;
-            shiftCompletionForm.onsubmit = function(e) {
-                // Let the original validation run first
-                if (originalSubmit) {
-                    const result = originalSubmit.call(this, e);
-                    if (result === false) return false;
-                }
-                
-                // Add any additional complete-for-user specific validation here
-                const attendanceStatus = document.querySelector('select[name="attendance_status"]');
-                if (!attendanceStatus || attendanceStatus.value === '') {
-                    e.preventDefault();
-                    alert('Please select an attendance status.');
-                    return false;
-                }
-                
-                return true;
-            };
-        }
-    });
-</script>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@2.3.2/dist/signature_pad.min.js"></script>
+<script src="{% static 'js/shift_complete.js' %}"></script>
 {% endblock %}
