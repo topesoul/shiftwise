@@ -211,15 +211,24 @@ class Shift(TimestampedModel):
 
     def save(self, *args, **kwargs):
         """
-        Overrides the save method to ensure clean is called.
-        Auto-generates shift_code if not provided.
-        Allows passing 'skip_date_validation' through kwargs.
+        Validates the Shift and assigns shift_code when needed.
         """
-        if not self.shift_code:
+        # Generate shift_code if missing and agency is set
+        if not self.shift_code and self.agency:
             self.shift_code = self.generate_shift_code()
+        elif not self.shift_code and not self.agency:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("Shift saved without agency; shift_code generation skipped.")
+
         skip_date_validation = kwargs.pop("skip_date_validation", False)
         self.clean(skip_date_validation=skip_date_validation)
         super().save(*args, **kwargs)
+
+        # Ensure shift_code is generated if agency was assigned during save
+        if not self.shift_code and self.agency:
+            self.shift_code = self.generate_shift_code()
+            type(self).objects.filter(pk=self.pk).update(shift_code=self.shift_code)
 
     def get_absolute_url(self):
         """
