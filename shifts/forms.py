@@ -29,7 +29,6 @@ class ShiftForm(AddressFormMixin, forms.ModelForm):
         model = Shift
         fields = [
             "name",
-            "shift_code",
             "shift_date",
             "start_time",
             "end_time",
@@ -183,15 +182,39 @@ class ShiftForm(AddressFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super(ShiftForm, self).__init__(*args, **kwargs)
-
+        
+        # If this is an existing shift, display the shift code as read-only
+        if self.instance.pk and self.instance.shift_code:
+            self.fields['shift_code_display'] = forms.CharField(
+                required=False,
+                disabled=True,
+                initial=self.instance.shift_code,
+                label="Shift Code",
+                help_text="System-generated unique identifier for this shift."
+            )
+        
         # Initialize FormHelper for crispy_forms
         self.helper = FormHelper()
         self.helper.form_method = "post"
-        self.helper.layout = Layout(
-            Row(
-                Column("name", css_class="form-group col-md-6 mb-0"),
-                Column("shift_code", css_class="form-group col-md-6 mb-0"),
-            ),
+        
+        # Update layout to include the read-only shift code if it exists
+        layout_fields = []
+        
+        if self.instance.pk and self.instance.shift_code:
+            layout_fields.append(
+                Row(
+                    Column("name", css_class="form-group col-md-6 mb-0"),
+                    Column("shift_code_display", css_class="form-group col-md-6 mb-0"),
+                )
+            )
+        else:
+            layout_fields.append(
+                Row(
+                    Column("name", css_class="form-group col-md-12 mb-0"),
+                )
+            )
+            
+        layout_fields.extend([
             Row(
                 Column("shift_date", css_class="form-group col-md-6 mb-0"),
                 Column("end_date", css_class="form-group col-md-6 mb-0"),
@@ -225,7 +248,9 @@ class ShiftForm(AddressFormMixin, forms.ModelForm):
             # Hidden fields
             Field("latitude"),
             Field("longitude"),
-        )
+        ])
+        
+        self.helper.layout = Layout(*layout_fields)
 
         # Conditional display and requirement of 'agency' and 'is_active' fields
         if self.user and self.user.is_superuser:
