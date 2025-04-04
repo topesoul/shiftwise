@@ -172,19 +172,23 @@ DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'OPTIONS': {
+            'user_attributes': ('username', 'email', 'first_name', 'last_name'),
+            'max_similarity': 0.7,
+        }
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-        "OPTIONS": {
-            "min_length": 12,
-        },
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 12,
+        }
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
@@ -236,6 +240,10 @@ ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+
+# Rate limiting for authentication
+ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
+ACCOUNT_LOGIN_ATTEMPTS_TIMEOUT = 300  # seconds
 
 # -----------------------------------------------------------------------------
 # Email Configuration
