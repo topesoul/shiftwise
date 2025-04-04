@@ -8,6 +8,8 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.utils.html import strip_tags
+from django.core.validators import EmailValidator, MinLengthValidator
 
 from accounts.models import Agency
 from core.forms import AddressFormMixin
@@ -24,6 +26,13 @@ class ShiftForm(AddressFormMixin, forms.ModelForm):
     Integrates Google Places Autocomplete for address fields.
     Includes 'agency' field, required only for superusers.
     """
+
+    # Honeypot field to deter automated spam
+    honeypot = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        label="Leave empty",
+    )
 
     class Meta:
         model = Shift
@@ -267,8 +276,27 @@ class ShiftForm(AddressFormMixin, forms.ModelForm):
             if "class" not in field.widget.attrs:
                 field.widget.attrs["class"] = "form-control"
 
+    def clean_honeypot(self):
+        """Check that honeypot field is empty."""
+        value = self.cleaned_data.get("honeypot", "")
+        if value:
+            raise forms.ValidationError("Spam check failed.")
+        return value
+        
+    def clean_notes(self):
+        """Sanitize notes field to prevent XSS attacks."""
+        notes = self.cleaned_data.get('notes', '')
+        return strip_tags(notes)
+
     def clean(self):
         cleaned_data = super().clean()
+        
+        # Permission validation
+        if self.user and not (self.user.is_superuser or self.user.has_perm('shifts.change_shift')):
+            if self.instance.pk:  # Only check on edit, not on create
+                raise ValidationError("You don't have permission to modify this shift")
+        
+        # Collect relevant fields for shift validation
         shift_date = cleaned_data.get("shift_date")
         end_date = cleaned_data.get("end_date")
         capacity = cleaned_data.get("capacity")
@@ -389,6 +417,13 @@ class ShiftFilterForm(forms.Form):
     Form for filtering shifts based on date range, status, search queries, shift code, and location/address.
     """
 
+    # Add honeypot field for spam prevention
+    honeypot = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        label="Leave empty",
+    )
+
     STATUS_CHOICES = [
         ("all", "All"),
         ("available", "Available"),
@@ -480,12 +515,41 @@ class ShiftFilterForm(forms.Form):
             Field("longitude"),
         )
 
+    def clean_honeypot(self):
+        """Check that honeypot field is empty."""
+        value = self.cleaned_data.get("honeypot", "")
+        if value:
+            raise ValidationError("Spam check failed.")
+        return value
+        
+    def clean_search(self):
+        """Sanitize search field to prevent XSS attacks."""
+        search = self.cleaned_data.get('search', '')
+        return strip_tags(search)
+        
+    def clean_shift_code(self):
+        """Sanitize and validate shift code."""
+        shift_code = self.cleaned_data.get('shift_code', '')
+        return strip_tags(shift_code)
+        
+    def clean_address(self):
+        """Sanitize address field."""
+        address = self.cleaned_data.get('address', '')
+        return strip_tags(address)
+
 
 class ShiftCompletionForm(forms.Form):
     """
     Form for completing a shift, capturing digital signature and location data.
     Includes attendance status for supervisors or managers to set.
     """
+
+    # Add honeypot field for spam prevention
+    honeypot = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        label="Leave empty",
+    )
 
     signature = forms.CharField(widget=forms.HiddenInput(), required=False)
     latitude = forms.DecimalField(
@@ -523,6 +587,22 @@ class ShiftCompletionForm(forms.Form):
                 Column("attendance_status", css_class="form-group col-md-12 mb-0"),
             ),
         )
+
+    def clean_honeypot(self):
+        """Check that honeypot field is empty."""
+        value = self.cleaned_data.get("honeypot", "")
+        if value:
+            raise ValidationError("Spam check failed.")
+        return value
+    
+    def clean_signature(self):
+        """Validate signature data format to prevent XSS and injection."""
+        signature = self.cleaned_data.get("signature", "")
+        if signature:
+            # Verify it's a proper data URL
+            if not signature.startswith("data:image/"):
+                raise ValidationError("Invalid signature format.")
+        return signature
 
     def clean(self):
         cleaned_data = super().clean()
@@ -585,6 +665,11 @@ class StaffPerformanceForm(forms.ModelForm):
         if rating < 0 or rating > 5:
             raise ValidationError("Performance rating must be between 0 and 5.")
         return rating
+        
+    def clean_comments(self):
+        """Sanitize comments field to prevent XSS attacks."""
+        comments = self.cleaned_data.get('comments', '')
+        return strip_tags(comments)
 
 
 class AssignWorkerForm(forms.Form):
@@ -592,6 +677,13 @@ class AssignWorkerForm(forms.Form):
     Form for assigning a worker to a shift.
     Includes a hidden 'worker' field and a 'role' dropdown.
     """
+
+    # Add honeypot field for spam prevention
+    honeypot = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        label="Leave empty",
+    )
 
     worker = forms.ModelChoiceField(
         queryset=User.objects.none(),
@@ -607,18 +699,18 @@ class AssignWorkerForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         shift = kwargs.pop("shift", None)
-        user = kwargs.pop("user", None)
+        self.user = kwargs.pop("user", None)
         worker = kwargs.pop("worker", None)
         super().__init__(*args, **kwargs)
 
-        if shift and user:
-            if user.is_superuser:
+        if shift and self.user:
+            if self.user.is_superuser:
                 # Superuser can assign any active Agency Staff not already assigned to the shift
                 self.fields["worker"].queryset = User.objects.filter(
                     groups__name="Agency Staff",
                     is_active=True,
                 ).exclude(shift_assignments__shift=shift)
-            elif user.groups.filter(name="Agency Managers").exists():
+            elif self.user.groups.filter(name="Agency Managers").exists():
                 # Agency Managers can assign Agency Staff within their own agency
                 self.fields["worker"].queryset = User.objects.filter(
                     profile__agency=shift.agency,
@@ -633,18 +725,20 @@ class AssignWorkerForm(forms.Form):
         if worker:
             self.fields["worker"].initial = worker.id
 
-    def clean_worker(self):
-        worker = self.cleaned_data.get("worker")
-        if not worker:
-            raise forms.ValidationError("Worker is required to assign.")
-        return worker
+    def clean_honeypot(self):
+        """Check that honeypot field is empty."""
+        value = self.cleaned_data.get("honeypot", "")
+        if value:
+            raise ValidationError("Spam check failed.")
+        return value
 
-    def clean_role(self):
-        role = self.cleaned_data.get("role")
-        valid_roles = dict(ShiftAssignment.ROLE_CHOICES).keys()
-        if role not in valid_roles:
-            raise forms.ValidationError("Invalid role selected.")
-        return role
+    def clean(self):
+        cleaned_data = super().clean()
+        # Permission validation
+        if self.user and not (self.user.is_superuser or 
+                              self.user.has_perm('shifts.add_shiftassignment')):
+            raise ValidationError("You don't have permission to assign workers to shifts")
+        return cleaned_data
 
 
 class UnassignWorkerForm(forms.Form):
@@ -653,6 +747,20 @@ class UnassignWorkerForm(forms.Form):
     Includes a hidden 'worker_id' field.
     """
 
+    # Add honeypot field for spam prevention
+    honeypot = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        label="Leave empty",
+    )
+
     worker_id = forms.IntegerField(
         widget=forms.HiddenInput(attrs={"id": "id_worker_id"})
     )
+    
+    def clean_honeypot(self):
+        """Check that honeypot field is empty."""
+        value = self.cleaned_data.get("honeypot", "")
+        if value:
+            raise ValidationError("Spam check failed.")
+        return value
