@@ -150,27 +150,21 @@ class StaffCreateView(
         if not self.request.user.is_superuser:
             agency = self.request.user.profile.agency
             if not agency:
-                messages.error(self.request, "You are not associated with any agency.")
+                from core.mixins import handle_permission_error
                 logger.warning(
                     f"User {self.request.user.username} attempted to add staff without an associated agency."
                 )
-                return redirect("accounts:profile")
+                return handle_permission_error(
+                    self.request,
+                    "You must be associated with an agency to add staff members.",
+                    "accounts:profile"
+                )
             user.save()
             user.profile.agency = agency
             user.profile.travel_radius = form.cleaned_data.get("travel_radius") or 0.0
             user.profile.save()
         else:
-            # Superuser can assign staff to any agency
-            agency = form.cleaned_data.get("agency")
-            if agency:
-                user.save()
-                user.profile.agency = agency
-                user.profile.save()
-            else:
-                messages.error(
-                    self.request, "You must select an agency for the staff member."
-                )
-                return self.form_invalid(form)
+            user.save()
         # Add to 'Agency Staff' group
         agency_staff_group, _ = Group.objects.get_or_create(name="Agency Staff")
         user.groups.add(agency_staff_group)
@@ -209,10 +203,12 @@ class StaffUpdateView(
         staff_member = self.get_object()
         if not user.is_superuser:
             if staff_member.profile.agency != user.profile.agency:
-                messages.error(
-                    request, "You do not have permission to edit this staff member."
+                from core.mixins import handle_permission_error
+                return handle_permission_error(
+                    request,
+                    "You do not have permission to edit this staff member.",
+                    "shifts:staff_list"
                 )
-                return redirect("shifts:staff_list")
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -251,10 +247,12 @@ class StaffDeleteView(
         staff_member = self.get_object()
         if not user.is_superuser:
             if staff_member.profile.agency != user.profile.agency:
-                messages.error(
-                    request, "You do not have permission to deactivate this staff member."
+                from core.mixins import handle_permission_error
+                return handle_permission_error(
+                    request,
+                    "You do not have permission to deactivate this staff member.",
+                    "shifts:staff_list"
                 )
-                return redirect("shifts:staff_list")
         return super().dispatch(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
