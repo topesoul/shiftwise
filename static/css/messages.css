@@ -15,40 +15,71 @@
     box-shadow: var(--box-shadow-light);
     transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
     border-left: 4px solid transparent;
+    display: flex;
+    align-items: center;
+    padding: 1rem;
 }
 
+/* Alert type definitions */
 #message-container .alert-success {
     border-left-color: var(--success-color);
-    background-color: rgba(46, 204, 113, 0.1);
+    background-color: rgba(var(--success-color-rgb, 46, 204, 113), 0.15);
+    color: var(--success-text, #155724);
 }
 
 #message-container .alert-info {
     border-left-color: var(--info-color);
-    background-color: rgba(23, 162, 184, 0.1);
+    background-color: rgba(var(--info-color-rgb, 23, 162, 184), 0.15);
+    color: var(--info-text, #0c5460);
 }
 
 #message-container .alert-warning {
     border-left-color: var(--warning-color);
-    background-color: rgba(243, 156, 18, 0.1);
+    background-color: rgba(var(--warning-color-rgb, 243, 156, 18), 0.15);
+    color: var(--warning-text, #856404);
 }
 
 #message-container .alert-danger {
     border-left-color: var(--danger-color);
-    background-color: rgba(231, 76, 60, 0.1);
+    background-color: rgba(var(--danger-color-rgb, 231, 76, 60), 0.15);
+    color: var(--danger-text, #721c24);
 }
 
+/* Close button styles */
 #message-container .alert .close {
     padding: 0.5rem;
     color: var(--text-color);
     opacity: 0.7;
     transition: opacity var(--transition-speed);
+    margin-left: auto;
 }
 
 #message-container .alert .close:hover {
     opacity: 1;
 }
 
-/* Animation for new messages */
+/* Icon color assignments */
+#message-container .alert i {
+    color: inherit;
+}
+
+#message-container .alert-success i {
+    color: var(--success-color);
+}
+
+#message-container .alert-info i {
+    color: var(--info-color);
+}
+
+#message-container .alert-warning i {
+    color: var(--warning-color);
+}
+
+#message-container .alert-danger i {
+    color: var(--danger-color);
+}
+
+/* Slide-in animation for alerts */
 @keyframes messageSlideIn {
     from {
         opacity: 0;
@@ -64,7 +95,7 @@
     animation: messageSlideIn 0.3s ease-out forwards;
 }
 
-/* Dark mode adjustments */
+/* Styles for dark mode */
 .dark-mode #message-container .alert {
     background-color: #2c2c2c;
     color: #ffffff;
@@ -72,22 +103,26 @@
 
 .dark-mode #message-container .alert-success {
     border-left-color: var(--success-color);
-    background-color: rgba(46, 204, 113, 0.2);
+    background-color: rgba(var(--success-color-rgb, 46, 204, 113), 0.2);
+    color: var(--light-color);
 }
 
 .dark-mode #message-container .alert-info {
     border-left-color: var(--info-color);
-    background-color: rgba(23, 162, 184, 0.2);
+    background-color: rgba(var(--info-color-rgb, 23, 162, 184), 0.2);
+    color: var(--light-color);
 }
 
 .dark-mode #message-container .alert-warning {
     border-left-color: var(--warning-color);
-    background-color: rgba(243, 156, 18, 0.2);
+    background-color: rgba(var(--warning-color-rgb, 243, 156, 18), 0.2);
+    color: var(--light-color);
 }
 
 .dark-mode #message-container .alert-danger {
     border-left-color: var(--danger-color);
-    background-color: rgba(231, 76, 60, 0.2);
+    background-color: rgba(var(--danger-color-rgb, 231, 76, 60), 0.2);
+    color: var(--light-color);
 }
 
 .dark-mode #message-container .alert .close {
