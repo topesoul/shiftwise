@@ -25,13 +25,11 @@ from shifts.forms import ShiftCompletionForm
 from shifts.models import Shift, ShiftAssignment
 from shiftwise.utils import haversine_distance
 
-# Initialize logger
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
 def can_complete_shift(user, shift):
-    # Allow completion if the user is a superuser or assigned to the shift.
     if user.is_superuser or ShiftAssignment.objects.filter(shift=shift, worker=user).exists():
         return True, ""
     return False, "You are not allowed to complete this shift."
@@ -43,8 +41,8 @@ class ShiftCompleteView(
     View,
 ):
     """
-    Allows agency staff or superusers to complete a shift with digital signature and location verification.
-    Superusers can complete any shift without agency restrictions.
+    Shift completion view with signature capture and location verification.
+    Restricted to assigned workers and superusers.
     """
 
     required_features = ["shift_management"]
@@ -52,7 +50,7 @@ class ShiftCompleteView(
     def get(self, request, shift_id, *args, **kwargs):
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
 
-        # Ensure the user is assigned to the shift or is a superuser
+        # Verify assignment authorization
         if not (
             request.user.is_superuser
             or ShiftAssignment.objects.filter(shift=shift, worker=request.user).exists()
@@ -75,12 +73,11 @@ class ShiftCompleteView(
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
         user = request.user
 
-        # Ensure the shift date is not in the future
+        # Prevent completion of future shifts
         if shift.shift_date > timezone.now().date():
             messages.error(request, "Cannot complete a shift scheduled in the future.")
             return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Use the helper function to check if user can complete the shift
         can_complete, message = can_complete_shift(user, shift)
         if not can_complete:
             messages.error(request, message)
@@ -88,13 +85,12 @@ class ShiftCompleteView(
 
         form = ShiftCompletionForm(request.POST, request.FILES)
         if form.is_valid():
-            # Extract form data
             signature_data = form.cleaned_data.get("signature")
             latitude = form.cleaned_data.get("latitude")
             longitude = form.cleaned_data.get("longitude")
             attendance_status = form.cleaned_data.get("attendance_status")
 
-            # Handle signature if provided
+            # Process signature data
             if signature_data:
                 try:
                     format, imgstr = signature_data.split(";base64,")
@@ -110,9 +106,9 @@ class ShiftCompleteView(
                     messages.error(request, "Invalid signature data.")
                     return redirect("shifts:shift_detail", pk=shift.id)
             else:
-                data = None  # No signature provided
+                data = None
 
-            # Validate geolocation proximity unless user is superuser
+            # Verify location proximity for non-superusers
             if not user.is_superuser:
                 if latitude and longitude and shift.latitude and shift.longitude:
                     try:
@@ -136,18 +132,14 @@ class ShiftCompleteView(
                         messages.error(request, "Invalid location data.")
                         return redirect("shifts:shift_detail", pk=shift.id)
 
-                    # Proceed with distance check
                     if distance > 0.5:
                         messages.error(
                             request,
                             f"You are too far from the shift location ({distance:.2f} miles).",
                         )
                         return redirect("shifts:shift_detail", pk=shift.id)
-                else:
-                    # If geo data is not provided, allow manual address
-                    pass  # No distance check if location is not provided
 
-            # Get or create the ShiftAssignment with proper error handling
+            # Create or retrieve assignment record
             try:
                 if user.is_superuser:
                     try:
@@ -163,21 +155,20 @@ class ShiftCompleteView(
                 messages.error(request, str(ve))
                 return redirect("shifts:shift_detail", pk=shift.id)
 
-            # Ensure worker's profile has an agency
+            # Verify agency associations
             if not user.profile.agency:
                 messages.error(
                     request, "Your profile is not associated with any agency."
                 )
                 return redirect("accounts:profile")
 
-            # Ensure worker's agency matches shift's agency
             if shift.agency != user.profile.agency:
                 messages.error(
                     request, "You can only complete shifts within your agency."
                 )
                 return redirect("shifts:shift_detail", pk=shift.id)
 
-            # Update assignment with completion data if provided
+            # Update assignment completion data
             if data:
                 assignment.signature = data
             if latitude and longitude:
@@ -185,11 +176,10 @@ class ShiftCompleteView(
                 assignment.completion_longitude = longitude
             assignment.completion_time = timezone.now()
 
-            # Set attendance status if provided
             if attendance_status:
                 assignment.attendance_status = attendance_status
 
-            # Mark shift as completed if all assignments are completed
+            # Update shift completion status if all assignments complete
             all_assignments = ShiftAssignment.objects.filter(shift=shift)
             if all(a.completion_time for a in all_assignments):
                 shift.is_completed = True
@@ -197,7 +187,7 @@ class ShiftCompleteView(
                 if data:
                     shift.signature = data
 
-            # Save both shift and assignment
+            # Persist changes
             try:
                 shift.clean(skip_date_validation=True)
                 shift.save()
@@ -224,14 +214,13 @@ class ShiftCompleteForUserView(
     View,
 ):
     """
-    Allows superusers, agency managers and agency owners to complete a shift on behalf of a user.
-    Useful in scenarios where the user cannot complete the shift themselves.
+    Administrative view allowing authorized users to complete shifts on behalf of workers.
+    Limited to superusers, agency managers, and owners.
     """
 
     required_features = ["shift_management"]
 
     def dispatch(self, request, *args, **kwargs):
-        # Check if user is a superuser, agency manager, or agency owner
         if not (request.user.is_superuser or 
                 request.user.groups.filter(name__in=["Agency Managers", "Agency Owners"]).exists()):
             messages.error(request, "You don't have permission to complete shifts for other users.")
@@ -240,11 +229,19 @@ class ShiftCompleteForUserView(
 
     def get(self, request, shift_id, user_id, *args, **kwargs):
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
-        user_to_complete = get_object_or_404(
-            User, id=user_id, groups__name="Agency Staff", is_active=True
-        )
+        user_to_complete = get_object_or_404(User, id=user_id, is_active=True)
+        
+        # Verify user role eligibility
+        is_valid_user = user_to_complete.groups.filter(name="Agency Staff").exists() or user_to_complete.is_superuser
+        
+        if not is_valid_user:
+            messages.error(
+                request, 
+                f"User {user_to_complete.get_full_name()} cannot have shifts completed on their behalf because they are not Agency Staff."
+            )
+            return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Ensure the shift belongs to the manager's agency if not superuser
+        # Verify agency permissions
         if (
             not request.user.is_superuser
             and shift.agency != request.user.profile.agency
@@ -252,14 +249,12 @@ class ShiftCompleteForUserView(
             messages.error(request, "You cannot complete shifts outside your agency.")
             return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Ensure the worker belongs to the same agency as the shift
         if user_to_complete.profile.agency != shift.agency:
             messages.error(
                 request, "The worker does not belong to the same agency as the shift."
             )
             return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Check if shift is already completed
         if shift.is_completed:
             messages.info(request, "This shift has already been completed.")
             return redirect("shifts:shift_detail", pk=shift.id)
@@ -275,11 +270,19 @@ class ShiftCompleteForUserView(
     def post(self, request, shift_id, user_id, *args, **kwargs):
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
         user = request.user
-        user_to_complete = get_object_or_404(
-            User, id=user_id, groups__name="Agency Staff", is_active=True
-        )
+        user_to_complete = get_object_or_404(User, id=user_id, is_active=True)
+        
+        # Verify worker eligibility
+        is_valid_user = user_to_complete.groups.filter(name="Agency Staff").exists() or user_to_complete.is_superuser
+        
+        if not is_valid_user:
+            messages.error(
+                request, 
+                f"User {user_to_complete.get_full_name()} cannot have shifts completed on their behalf because they are not Agency Staff."
+            )
+            return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Ensure the shift belongs to the manager's agency if not superuser
+        # Agency permission checks
         if (
             not request.user.is_superuser
             and shift.agency != request.user.profile.agency
@@ -290,27 +293,24 @@ class ShiftCompleteForUserView(
             )
             return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Ensure the worker belongs to the same agency as the shift
         if user_to_complete.profile.agency != shift.agency:
             messages.error(
                 request, "The worker does not belong to the same agency as the shift."
             )
             return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Check if shift is already completed
         if shift.is_completed:
             messages.info(request, "This shift has already been completed.")
             return redirect("shifts:shift_detail", pk=shift.id)
 
         form = ShiftCompletionForm(request.POST, request.FILES)
         if form.is_valid():
-            # Extract form data
             signature_data = form.cleaned_data.get("signature")
             latitude = form.cleaned_data.get("latitude")
             longitude = form.cleaned_data.get("longitude")
             attendance_status = form.cleaned_data.get("attendance_status")
 
-            # Handle signature if provided
+            # Process signature
             if signature_data:
                 try:
                     format, imgstr = signature_data.split(";base64,")
@@ -326,9 +326,9 @@ class ShiftCompleteForUserView(
                     messages.error(request, "Invalid signature data.")
                     return redirect("shifts:shift_detail", pk=shift.id)
             else:
-                data = None  # No signature provided
+                data = None
 
-            # If completing on behalf, use shift's location if not superuser
+            # Use shift location for privileged users when coordinates not provided
             if (
                 request.user.is_superuser
                 or request.user.groups.filter(name="Agency Managers").exists()
@@ -337,7 +337,7 @@ class ShiftCompleteForUserView(
                     latitude = shift.latitude
                     longitude = shift.longitude
 
-            # Validate geolocation proximity unless user is superuser
+            # Proximity validation for non-superusers
             if not request.user.is_superuser:
                 if latitude and longitude and shift.latitude and shift.longitude:
                     try:
@@ -361,23 +361,19 @@ class ShiftCompleteForUserView(
                         messages.error(request, "Invalid location data.")
                         return redirect("shifts:shift_detail", pk=shift.id)
 
-                    # Proceed with distance check
                     if distance > 0.5:
                         messages.error(
                             request,
                             f"You are too far from the shift location ({distance:.2f} miles).",
                         )
                         return redirect("shifts:shift_detail", pk=shift.id)
-                else:
-                    # If geo data is not provided, allow manual address
-                    pass  # No distance check if location is not provided
 
-            # Now, safely create or retrieve the ShiftAssignment
+            # Create or retrieve assignment
             assignment, created = ShiftAssignment.objects.get_or_create(
                 shift=shift, worker=user_to_complete
             )
 
-            # Update assignment with completion data
+            # Update completion data
             if data:
                 assignment.signature = data
             if latitude and longitude:
@@ -385,11 +381,10 @@ class ShiftCompleteForUserView(
                 assignment.completion_longitude = longitude
             assignment.completion_time = timezone.now()
 
-            # Set attendance status if provided
             if attendance_status:
                 assignment.attendance_status = attendance_status
 
-            # Mark shift as completed if all assignments are completed
+            # Update shift completion status if all assignments complete
             all_assignments = ShiftAssignment.objects.filter(shift=shift)
             if all(a.completion_time for a in all_assignments):
                 shift.is_completed = True
@@ -397,11 +392,11 @@ class ShiftCompleteForUserView(
                 if data:
                     shift.signature = data
 
-            # Save both shift and assignment
+            # Save changes
             try:
                 shift.clean(skip_date_validation=True)
                 shift.save()
-                assignment.save()
+                assignment.save(bypass_validation=True)
             except ValidationError as ve:
                 messages.error(request, ve.message)
                 return redirect("shifts:shift_detail", pk=shift.id)
@@ -427,8 +422,8 @@ class ShiftCompleteAjaxView(
     View,
 ):
     """
-    Handles shift completion via AJAX, returning JSON responses.
-    Superusers can complete any shift without agency restrictions.
+    AJAX endpoint for shift completion with JSON responses.
+    Accessible to superusers and agency managers.
     """
 
     required_features = ["shift_management"]
@@ -437,7 +432,7 @@ class ShiftCompleteAjaxView(
         user = request.user
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
 
-        # Check if the user is assigned to this shift or is a superuser
+        # Permission check
         if not (
             ShiftAssignment.objects.filter(shift=shift, worker=user).exists()
             or user.is_superuser
@@ -459,7 +454,7 @@ class ShiftCompleteAjaxView(
         longitude = request.POST.get("longitude")
         attendance_status = request.POST.get("attendance_status")
 
-        # Handle signature if provided
+        # Process signature
         if signature:
             try:
                 format, imgstr = signature.split(";base64,")
@@ -477,9 +472,9 @@ class ShiftCompleteAjaxView(
                     "Invalid signature data."
                 )
         else:
-            data = None  # No signature provided
+            data = None
 
-        # Validate geolocation proximity unless user is superuser
+        # Proximity validation for non-superusers
         if not user.is_superuser:
             if latitude and longitude and shift.latitude and shift.longitude:
                 try:
@@ -498,27 +493,20 @@ class ShiftCompleteAjaxView(
                         "Invalid location data."
                     )
 
-                # Proceed with distance check
                 if distance > 0.5:
                     return ajax_response_with_message(
                         False,
                         f"You are not within the required 0.5-mile distance to complete this shift. Current distance: {distance:.2f} miles."
                     )
-            else:
-                # If geo data is not provided, allow manual address
-                pass  # No distance check if location is not provided
 
-        # Save the signature image if provided
+        # Update shift data
         if data:
             shift.signature = data
 
-        # Mark shift as completed
         shift.is_completed = True
         shift.completion_time = timezone.now()
-        if data:
-            shift.signature = data
 
-        # Update attendance status for the assignment if provided
+        # Update assignment data
         try:
             if not user.is_superuser:
                 assignment = ShiftAssignment.objects.get(shift=shift, worker=user)
@@ -548,7 +536,7 @@ class ShiftCompleteAjaxView(
                 "An error occurred while completing the shift."
             )
 
-        # Check if all assignments are completed
+        # Verify all assignments are complete
         all_assignments = ShiftAssignment.objects.filter(shift=shift)
         if all(a.completion_time for a in all_assignments):
             shift.is_completed = True
@@ -557,7 +545,7 @@ class ShiftCompleteAjaxView(
                 shift.signature = data
             shift.save()
 
-        # Save shift
+        # Save changes
         try:
             shift.clean(skip_date_validation=True)
             shift.save()
@@ -575,9 +563,6 @@ class ShiftCompleteAjaxView(
         )
 
     def get(self, request, shift_id, *args, **kwargs):
-        """
-        Handle invalid GET requests for this view.
-        """
         return ajax_response_with_message(
             False, 
             "Invalid request method."
