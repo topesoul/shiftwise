@@ -74,7 +74,7 @@
                         </td>
                         <td>
                             <a href="{% url 'shifts:staff_update' staff.pk %}" class="btn btn-sm btn-secondary">Edit</a>
-                            <a href="{% url 'shifts:staff_delete' staff.pk %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to deactivate this staff member?');">Deactivate</a>
+                            <a href="{% url 'shifts:staff_delete' staff.pk %}" class="btn btn-sm btn-danger">Deactivate</a>
                         </td>
                     </tr>
                 {% empty %}
