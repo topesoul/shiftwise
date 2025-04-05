@@ -3,11 +3,23 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Shift completion script loaded');
     
+    // Verify SignaturePad library is loaded
+    if (typeof SignaturePad === 'undefined') {
+        console.error('SignaturePad library not loaded!');
+        if (window.messageUtil) {
+            window.messageUtil.error('Error: Signature pad component could not be loaded.');
+        }
+        return;
+    }
+    
     // DOM element references
     const canvas = document.getElementById('signaturePad');
     console.log('SignaturePad canvas found:', !!canvas);
     if (!canvas) {
         console.error("SignaturePad canvas not found");
+        if (window.messageUtil) {
+            window.messageUtil.error('Error: Signature pad component not found.');
+        }
         return;
     }
     
@@ -22,6 +34,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!signatureInput || !clearSignatureButton || !getLocationButton || 
         !locationStatus || !confirmAddressInput || !latitudeField || !longitudeField) {
         console.error("Essential shift completion elements not found in the DOM");
+        if (window.messageUtil) {
+            window.messageUtil.error('Error: Required form elements could not be found.');
+        }
         return;
     }
     
@@ -51,10 +66,16 @@ document.addEventListener('DOMContentLoaded', function() {
     getLocationButton.addEventListener('click', function() {
         if (!navigator.geolocation) {
             locationStatus.innerHTML = '<span class="text-danger">Geolocation is not supported by your browser.</span>';
+            if (window.messageUtil) {
+                window.messageUtil.error('Geolocation is not supported by your browser.');
+            }
             return;
         }
         
         locationStatus.innerHTML = '<span class="text-info">Getting location...</span>';
+        if (window.messageUtil) {
+            window.messageUtil.info('Getting location...');
+        }
         
         // Request precise location with tight timeout
         navigator.geolocation.getCurrentPosition(
@@ -64,6 +85,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 latitudeField.value = latitude;
                 longitudeField.value = longitude;
                 locationStatus.innerHTML = `<span class="text-success">Location captured: (${latitude}, ${longitude})</span>`;
+                
+                if (window.messageUtil) {
+                    window.messageUtil.success('Location captured successfully.');
+                }
                 
                 // Reverse geocode coordinates to human-readable address
                 fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`)
@@ -75,6 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     .catch((error) => {
                         console.error("Error fetching address:", error);
                         confirmAddressInput.value = "Unable to retrieve address.";
+                        if (window.messageUtil) {
+                            window.messageUtil.warning('Unable to retrieve address details, but location was captured.');
+                        }
                     });
             },
             function(error) {
@@ -93,6 +121,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         break;
                 }
                 locationStatus.innerHTML = `<span class="text-danger">${errorMessage}</span>`;
+                
+                if (window.messageUtil) {
+                    window.messageUtil.error(errorMessage);
+                }
             },
             {
                 enableHighAccuracy: true,
@@ -118,12 +150,31 @@ document.addEventListener('DOMContentLoaded', function() {
     completeShiftForm.addEventListener('submit', function(event) {
         if (signaturePad.isEmpty()) {
             event.preventDefault();
-            alert('Please provide a signature before submitting.');
+            if (window.messageUtil) {
+                window.messageUtil.error('Please provide a signature before submitting.');
+            } else {
+                alert('Please provide a signature before submitting.');
+            }
+            return;
+        }
+        
+        // Verify location data is present
+        if (!latitudeField.value || !longitudeField.value) {
+            event.preventDefault();
+            if (window.messageUtil) {
+                window.messageUtil.error('Please capture your location before submitting.');
+            } else {
+                alert('Please capture your location before submitting.');
+            }
             return;
         }
         
         // Serialize signature for transmission
         signatureInput.value = signaturePad.toDataURL('image/png');
         console.log("Shift completion form validated successfully");
+        
+        if (window.messageUtil) {
+            window.messageUtil.info('Processing shift completion...');
+        }
     });
 });
