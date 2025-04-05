@@ -133,6 +133,48 @@
       <!-- Right Side Navbar Items -->
       <ul class="navbar-nav">
         {% if user.is_authenticated %}
+        <!-- Notifications Dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle position-relative" href="#" id="notificationsDropdown" role="button"
+            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
+            <i class="fas fa-bell"></i>
+            {% if unread_notifications_count > 0 %}
+            <span class="badge badge-danger position-absolute" style="top: 0; right: 0;">
+              {{ unread_notifications_count }}
+            </span>
+            {% endif %}
+          </a>
+          <div class="dropdown-menu dropdown-menu-right notification-menu" aria-labelledby="notificationsDropdown" style="width: 300px; max-height: 400px; overflow-y: auto;">
+            <h6 class="dropdown-header">Notifications</h6>
+            {% if notifications %}
+              {% for notification in notifications %}
+                <a class="dropdown-item notification-item {% if not notification.read %}font-weight-bold unread{% endif %}" 
+                   href="{% if notification.url %}{{ notification.url }}{% else %}#{% endif %}"
+                   data-notification-id="{{ notification.id }}">
+                  <div class="d-flex align-items-center">
+                    <div class="mr-2">
+                      <i class="{{ notification.icon }} text-primary"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div>{{ notification.message }}</div>
+                      <small class="text-muted">{{ notification.created_at|timesince }} ago</small>
+                    </div>
+                  </div>
+                </a>
+                {% if not forloop.last %}
+                <div class="dropdown-divider"></div>
+                {% endif %}
+              {% endfor %}
+              <div class="dropdown-divider"></div>
+              <a class="dropdown-item text-center" href="{% url 'notifications:notification_list' %}">
+                View All Notifications
+              </a>
+            {% else %}
+              <div class="dropdown-item text-center text-muted">No notifications</div>
+            {% endif %}
+          </div>
+        </li>
+        
         <!-- User Profile Dropdown -->
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown" role="button"
