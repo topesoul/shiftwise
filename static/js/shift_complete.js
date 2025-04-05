@@ -1,8 +1,11 @@
 // /workspace/shiftwise/static/js/shift_complete.js
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Check for essential elements before proceeding
+    console.log('Shift completion script loaded');
+    
+    // DOM element references
     const canvas = document.getElementById('signaturePad');
+    console.log('SignaturePad canvas found:', !!canvas);
     if (!canvas) {
         console.error("SignaturePad canvas not found");
         return;
@@ -16,20 +19,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const latitudeField = document.getElementById('id_shift_completion_latitude');
     const longitudeField = document.getElementById('id_shift_completion_longitude');
     
-    // Check if all required elements exist
     if (!signatureInput || !clearSignatureButton || !getLocationButton || 
         !locationStatus || !confirmAddressInput || !latitudeField || !longitudeField) {
         console.error("Essential shift completion elements not found in the DOM");
         return;
     }
     
-    // Signature pad setup with consistent configuration
+    // Initialize signature pad
     const signaturePad = new SignaturePad(canvas, {
         backgroundColor: 'rgb(255, 255, 255)',
         penColor: 'rgb(0, 0, 0)'
     });
     
-    // Adjust canvas for device pixel ratio
+    // Optimize canvas for device pixel ratio to prevent blurry signatures
     function resizeCanvas() {
         const ratio = Math.max(window.devicePixelRatio || 1, 1);
         canvas.width = canvas.offsetWidth * ratio;
@@ -38,17 +40,14 @@ document.addEventListener('DOMContentLoaded', function() {
         signaturePad.clear();
     }
     
-    // Initial canvas size
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
     
-    // Clear signature
     clearSignatureButton.addEventListener('click', function() {
         signaturePad.clear();
         signatureInput.value = "";
     });
     
-    // Get location
     getLocationButton.addEventListener('click', function() {
         if (!navigator.geolocation) {
             locationStatus.innerHTML = '<span class="text-danger">Geolocation is not supported by your browser.</span>';
@@ -57,6 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         locationStatus.innerHTML = '<span class="text-info">Getting location...</span>';
         
+        // Request precise location with tight timeout
         navigator.geolocation.getCurrentPosition(
             function(position) {
                 const latitude = position.coords.latitude.toFixed(6);
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 longitudeField.value = longitude;
                 locationStatus.innerHTML = `<span class="text-success">Location captured: (${latitude}, ${longitude})</span>`;
                 
-                // Fetch address using reverse geocoding
+                // Reverse geocode coordinates to human-readable address
                 fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`)
                     .then((response) => response.json())
                     .then((data) => {
@@ -102,37 +102,28 @@ document.addEventListener('DOMContentLoaded', function() {
         );
     });
     
-    // Target form more specifically
-    const completeShiftForm = document.querySelector('form[action*="complete"]') || 
-                              document.querySelector('form[enctype="multipart/form-data"]') ||
-                              document.querySelector('form');
+    const completeShiftForm = document.querySelector('form');
+    
+    // Add identifier for easier DOM targeting
+    if (completeShiftForm) {
+        completeShiftForm.id = 'completeShiftForm';
+    }
     
     if (!completeShiftForm) {
         console.error("Could not find the shift completion form");
         return;
     }
     
-    // Capture signature on submit
+    // Validate form submission
     completeShiftForm.addEventListener('submit', function(event) {
-        // Check if signature is provided
         if (signaturePad.isEmpty()) {
             event.preventDefault();
             alert('Please provide a signature before submitting.');
             return;
         }
         
-        // Capture signature data
-        const signatureData = signaturePad.toDataURL('image/png');
-        signatureInput.value = signatureData;
-        
-        // Check if location is provided
-        if (!latitudeField.value || !longitudeField.value) {
-            event.preventDefault();
-            alert('Please capture your location before submitting.');
-            return;
-        }
-        
-        // Form is valid - allow submission
+        // Serialize signature for transmission
+        signatureInput.value = signaturePad.toDataURL('image/png');
         console.log("Shift completion form validated successfully");
     });
 });
