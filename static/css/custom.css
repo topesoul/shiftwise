@@ -294,3 +294,68 @@
     background-color: var(--primary-gradient-end);
     color: var(--light-color);
 }
+
+/* =========================================
+   Notification Styles
+========================================= */
+
+/* Notification dropdown styling */
+.notification-menu {
+    min-width: 300px;
+    max-width: 400px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    position: relative;
+    transition: background-color 0.3s;
+}
+
+.notification-item:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+.notification-item.unread {
+    border-left: 3px solid var(--primary-gradient-start);
+}
+
+/* Badge positioning on notification bell */
+#notificationsDropdown .badge {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.4rem;
+}
+
+/* Notification list page */
+.notification-item .mark-read-btn {
+    opacity: 0.6;
+    transition: opacity 0.3s;
+}
+
+.notification-item:hover .mark-read-btn {
+    opacity: 1;
+}
+
+/* Empty notifications state */
+.empty-notifications {
+    padding: 2rem;
+    text-align: center;
+    color: var(--secondary-color);
+}
+
+.empty-notifications i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .notification-item.unread {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .notification-item:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
