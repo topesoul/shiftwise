@@ -13,9 +13,21 @@
     --accent-color: #ff6f61;
     /* for buttons or highlights */
     --success-color: #2ecc71;
+    --success-color-rgb: 46, 204, 113;
+    --success-text: #155724;
+    
     --danger-color: #e74c3c;
+    --danger-color-rgb: 231, 76, 60;
+    --danger-text: #721c24;
+    
     --warning-color: #f39c12;
+    --warning-color-rgb: 243, 156, 18;
+    --warning-text: #856404;
+    
     --info-color: #17a2b8;
+    --info-color-rgb: 23, 162, 184;
+    --info-text: #0c5460;
+    
     --background-color: #f0f4f8;
     --dark-color: #2d3436;
     --light-color: #ffffff;
