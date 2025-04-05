@@ -1,0 +1,10 @@
+Hello {{ user.first_name|default:user.username }},
+
+{{ message }}
+
+{% if url %}
+Click here to view more details: {{ site_url }}{{ url }}
+{% endif %}
+
+Thank you,
+The ShiftWise Team
