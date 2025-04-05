@@ -1,100 +1,77 @@
 # /workspace/shiftwise/core/utils.py
 
-import hashlib
 import logging
-import os
-import uuid
-
-from django.conf import settings
-from django.contrib.auth import get_user_model
+import random
+import secrets
+import string
+from django.http import JsonResponse
 from django.contrib.auth.models import Group
 from django.core.mail import send_mail
-from django.http import JsonResponse
-from django.urls import reverse
+from django.template.loader import render_to_string
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-
-def send_notification(user_id, message, subject="Notification", url=None):
-    """
-    Sends an email notification to the user with the given user_id.
-    """
-    User = get_user_model()
-    try:
-        user = User.objects.get(id=user_id)
-        recipient = user.email
-        full_message = (
-            f"{message}\n\nVisit: {settings.SITE_URL}{url}" if url else message
-        )
-        send_mail(
-            subject,
-            full_message,
-            settings.DEFAULT_FROM_EMAIL,
-            [recipient],
-            fail_silently=False,
-        )
-        logger.info(f"Notification sent to {user.username} at {recipient}.")
-    except User.DoesNotExist:
-        logger.error(f"User with id {user_id} does not exist.")
-
-
 def assign_user_to_group(user, group_name):
     """
-    Assigns the given user to the specified group.
+    Assigns a user to a specific Django group, creating it if it doesn't exist.
+    
+    Args:
+        user: User model instance
+        group_name: String name of the group
+    
+    Returns:
+        bool: Success status of the operation
     """
     try:
         group, created = Group.objects.get_or_create(name=group_name)
         user.groups.add(group)
-        logger.info(f"User {user.username} assigned to group '{group_name}'.")
+        logger.info(f"User {user.username} assigned to group {group_name}")
+        return True
     except Exception as e:
-        logger.error(
-            f"Error assigning user {user.username} to group '{group_name}': {e}"
-        )
+        logger.error(f"Error assigning user {user.username} to group {group_name}: {e}")
+        return False
 
 
-def generate_unique_code(prefix="", length=6):
+def generate_unique_code(prefix="", length=8):
     """
-    Generates a unique code with an optional prefix.
+    Generates a unique alphanumeric code with optional prefix.
+    
+    Args:
+        prefix: String prefix to add to the generated code
+        length: Length of the random portion of the code
+    
+    Returns:
+        str: Generated unique code
     """
-    return f"{prefix}{uuid.uuid4().hex[:length].upper()}"
+    chars = string.ascii_uppercase + string.digits
+    random_part = ''.join(random.choice(chars) for _ in range(length))
+    return f"{prefix}{random_part}"
 
 
-def create_unique_filename(instance, filename):
+def generate_random_password(length=12):
     """
-    Generates a unique filename using UUID to prevent name collisions.
+    Generates a secure random password of specified length.
+    
+    Args:
+        length: Length of the generated password
+    
+    Returns:
+        str: Secure random password
     """
-    ext = filename.split(".")[-1]
-    unique_filename = f"{uuid.uuid4().hex}.{ext}"
-    return os.path.join("uploads/", unique_filename)
-
-
-def send_email_notification(
-    user_email, subject, message, from_email=None, html_message=None, **kwargs
-):
-    """
-    Sends an email notification to the specified user.
-    """
-    from_email = from_email or settings.DEFAULT_FROM_EMAIL
-    try:
-        send_mail(
-            subject,
-            message,
-            from_email,
-            [user_email],
-            fail_silently=False,
-            html_message=html_message,
-            **kwargs,
-        )
-        logger.info(
-            f"Email notification sent to {user_email} with subject '{subject}'."
-        )
-    except Exception as e:
-        logger.exception(f"Failed to send email notification to {user_email}: {e}")
+    alphabet = string.ascii_letters + string.digits + string.punctuation
+    while True:
+        password = ''.join(secrets.choice(alphabet) for _ in range(length))
+        if (any(c.islower() for c in password)
+                and any(c.isupper() for c in password)
+                and any(c.isdigit() for c in password)
+                and any(c in string.punctuation for c in password)):
+            return password
 
 
 def ajax_response_with_message(success, message, data=None):
     """
-    Creates a standardized JSON response for AJAX views, including message text.
+    Creates a standardized JSON response for AJAX requests.
     
     Args:
         success (bool): Whether the operation was successful
@@ -113,3 +90,34 @@ def ajax_response_with_message(success, message, data=None):
         response_data.update(data)
         
     return JsonResponse(response_data)
+
+
+def send_notification_email(to_email, subject, template_path, context):
+    """
+    Sends an email notification using a template.
+    
+    Args:
+        to_email (str or list): Recipient email(s)
+        subject (str): Email subject
+        template_path (str): Path to the email template
+        context (dict): Template context variables
+    
+    Returns:
+        bool: Whether the email was sent successfully
+    """
+    try:
+        message = render_to_string(template_path, context)
+        recipient_list = [to_email] if isinstance(to_email, str) else to_email
+        
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=recipient_list,
+            fail_silently=False
+        )
+        logger.info(f"Email sent to {recipient_list} with subject: {subject}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email to {to_email}: {e}")
+        return False
