@@ -133,6 +133,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "accounts.context_processors.user_roles_and_subscriptions",
                 "core.context_processors.google_places_api_key",
+                "notifications.context_processors.notifications_processor",
             ],
             "builtins": [
                 "django.templatetags.static",
