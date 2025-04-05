@@ -1,10 +1,16 @@
 # ShiftWise: Revolutionizing Shift Management for All
 
-![ShiftWise Favicon](./static/images/favicon.ico)
+![ShiftWise Logo](https://raw.githubusercontent.com/topesoul/shiftwise/main/static/images/favicon.ico)
 
 [Link to the deployed/live app on Heroku](https://shiftwise-6b603db1db32.herokuapp.com/)
 
+## ShiftWise: Modern Shift Management Solution
+
+ShiftWise is a comprehensive shift management platform designed for workforce scheduling and management. Built with Django, it offers secure authentication, profile management, shift tracking, reporting dashboards, and subscription services.
+
 ![Dark Mode View](./docs/images/dark-mode-responsive-view.png)
+
+Visit the [live application](https://shiftwise-6b603db1db32.herokuapp.com/) to experience ShiftWise's capabilities firsthand.
 
 ShiftWise Web App has been developed as a robust, scalable, and secure shift management platform meticulously crafted to streamline scheduling for workforce management, such as flexible staffing in care home agencies in the UK for example. Built with Django, ShiftWise offers a comprehensive suite of features that facilitate efficient shift assignments, user authentication, profile management, email notifications, insightful reporting dashboards, and subscription-based services. Our mission is to reduce administrative overhead, enhance communication, and provide actionable analytics to optimize workforce management.
 
@@ -38,8 +44,8 @@ This project marks the final of a series of milestone projects undertaken as par
    - [Admin Controls](#admin-controls)
    - [Responsive Design](#responsive-design)
    - [Dark Mode](#dark-mode)
-   - [Features-Testing](#features-testing)
-   - [Bugs and Fixes](#known-bugs)
+   - [Features Testing](#features-testing)
+   - [Bugs and Fixes](#bugs-and-fixes)
 8. [Technologies Used](#technologies-used)
    - [Backend](#backend)
    - [Frontend](#frontend)
@@ -57,10 +63,10 @@ This project marks the final of a series of milestone projects undertaken as par
 11. [Usage](#usage)
     - [User Registration and Authentication](#user-registration-and-authentication)
     - [Profile Management](#profile-management)
-    - [Shift Management](#shift-management-1)
-    - [Notifications](#notifications-1)
-    - [Reporting Dashboard](#reporting-dashboard-1)
-    - [Subscriptions](#subscriptions-1)
+    - [Shift Management Operations](#shift-management-operations)
+    - [Notifications in Usage](#notifications-in-usage)
+    - [Reporting Dashboard in Usage](#reporting-dashboard-in-usage)
+    - [Subscriptions Management](#subscriptions-management)
 12. [Security Features](#security-features)
     - [Environment Configuration](#environment-configuration)
     - [User Authentication and Authorization](#user-authentication-and-authorization)
@@ -222,6 +228,7 @@ ShiftWise encompasses the following functionalities:
   - **Contact:** Reach out for support or inquiries.
   - **Profile:** Access and manage user profile.
   - **Logout:** Securely log out of the platform.
+  - **Dark Mode Toggle:** Switch between light and dark themes.
 
   ![Navigation Bar](./docs/images/nav-bar.png)
 
@@ -289,15 +296,9 @@ The visual design of ShiftWise combines modern aesthetics with functionality, en
 
   ![Testimonials](./docs/images/testimonials.png)
 
-- **Navigation Bar and Footer:**
-
-  - **Navigation Bar:**
-
-    ![Navigation Bar](./docs/images/nav-bar.png)
-
-  - **Footer:**
-
-    ![Footer Section](./docs/images/footer-image.png)
+- **Responsive Design Elements:**
+  
+  The navigation bar and footer maintain consistent styling while adapting to different screen sizes and theme preferences. Images of these elements are shown in the Navigation Structure section above.
 
 - **Logo:**
 
@@ -391,7 +392,8 @@ ShiftWise offers a comprehensive suite of features tailored to the needs of care
   - Users receive email notifications for shift assignments, updates, and reminders for upcoming shifts.
 
 - **UI Feedback Messages:**
-  - Real-time UI feedback messages inform users about actions such as creating, updating, or deleting shifts.
+  - Real-time UI feedback messages with consistent styling inform users about actions such as creating, updating, or deleting shifts.
+  - Centralized messaging system ensures consistent alert display across the application.
 
   ![Successful Subscription Notification](./docs/images/successful-subscription-notification.png)
 
@@ -422,9 +424,7 @@ ShiftWise offers a comprehensive suite of features tailored to the needs of care
   - Seamless subscription management with Stripe for secure billing and payment processing.
 
 - **Plan Management:**
-  - Users can upgrade, downgrade, or cancel subscriptions directly within the platform. ***(Please Note:The upgrade and downgrade features are illustrative and may require further configuration and testing)*** 
-
-  ![Manage Subscription View](./docs/images/manage-subscription-view.png)
+  - Users can upgrade, downgrade, or cancel subscriptions directly within the platform.
 
 ### Admin Controls
 
@@ -456,24 +456,41 @@ ShiftWise offers a comprehensive suite of features tailored to the needs of care
 
 ### Features Testing
 
-| **Test Name**                          | **Description**                                                    | **Expected Output**                                                 | **Test Result** |
-|----------------------------------------|--------------------------------------------------------------------|---------------------------------------------------------------------|-----------------|
-| **User Registration**                  | Register a new user with valid credentials.                        | User is successfully registered and redirected.                     | Pass            |
-| **Login with Correct Credentials**     | Log in using valid email and password.                             | User is authenticated and taken to the dashboard.                   | Pass            |
-| **Login with Incorrect Credentials**   | Attempt to log in with invalid password.                           | Error message indicating invalid credentials.                       | Pass            |
-| **Profile Update**                     | Update profile information and upload a new profile picture.       | Profile information is updated, and picture is changed.             | Pass            |
-| **Shift Creation**                     | Agency admin creates a new shift with all required details.        | Shift is created and visible in the shift list.                     | Pass            |
-| **Shift Assignment**                   | Assign a shift to an employee.                                     | Employee receives a notification about the shift assignment.        | Pass            |
-| **Shift Completion**                   | Employee completes a shift by submitting location and signature.   | Shift status is updated to completed with submission details.       | Pass            |
-| **Subscription Payment**               | Successfully pay for a subscription plan.                          | Payment is processed, and subscription is active.                   | Pass            |
-| **Subscription Cancellation**          | Cancel an active subscription.                                     | Subscription is canceled, and user is notified via email.           | Pass            |
-| **Notification Emails**                | Registered emails relating to shift assignments.                   | Shift assignment status notifications are sent to the assigned staff.| Pass            |
-| **Access Control**                     | Attempt to access admin panel as a regular user.                   | Access is denied with an appropriate error message.                 | Pass            |
-| **Superuser Access**                   | Superuser accesses all platform features and admin panels.         | Superuser has full access to all features and admin functionalities.| Pass            |
-| **Shift Assignment Notification**      | Shift is assigned to an employee.                                  | Employee receives an email notification about the shift assignment. | Pass            |
-| **Profile Picture Upload and Resize**  | Upload a profile picture and ensure it resizes correctly.          | Profile picture is uploaded and resized without errors.             | Pass            |
-| **API Shift Details Retrieval**        | Retrieve via API via permitted permitted user frontend interface.                                    | API link displays correctly in frontend UI.                    | Pass            |
-| **Worker Assignment and Unassignment** | Assign and unassign workers to shifts.                              | Workers are successfully assigned and unassigned with notifications.| Pass            |
+ShiftWise has undergone extensive testing to ensure reliability across all features. For a comprehensive breakdown of testing methodologies, tools, results, issue resolutions, and visual validation evidence, please refer to our detailed [TESTING.md](./TESTING.md) document.
+
+### Bugs and Fixes
+
+Below is a summary of key issues addressed during development. For a complete list of bugs and their resolutions, please refer to the [TESTING.md](./TESTING.md) document.
+
+#### 1. **Google Maps Autocomplete Implementation**
+
+**Issue**: The UK address autocomplete functionality experienced three critical issues:
+
+- City fields weren't being populated when selecting addresses
+- Address prefixes (like "Flat 1" or "Apt 2") were being lost
+- Inconsistent behavior across different forms in the application
+
+**Resolution**:
+
+- Implemented a centralized autocomplete handler in base.html
+- Added multiple fallback mechanisms for city field population
+- Created specialized logic to detect and preserve address prefixes
+- Ensured consistent event propagation to update dependent fields
+
+#### 2. **Shift Completion Inconsistencies**
+
+**Issue**: Differences between the standard shift completion and user-specific completion processes caused reliability issues:
+
+- Timing problems with signature pad initialization
+- Inconsistent validation requirements
+- Element selection differences
+
+**Resolution**:
+
+- Standardized element existence checks across both implementations
+- Implemented consistent initialization and configuration
+- Created uniform validation requirements
+- Added proper device pixel ratio handling for signature pad
 
 ---
 
@@ -483,19 +500,11 @@ ShiftWise leverages a combination of modern technologies to deliver a robust and
 
 ### Backend
 
-[Python Validation Results](./docs/images/python-validation-forms-linter.png)  
-[Python Validation Results](./docs/images/black-isort-python-validate-one.png)  
-[Python Validation Results](./docs/images/black-isort-python-validate.png)  
-
 - **Framework:** Django version 5.1.2
 - **Database:** PostgreSQL (deployed with SSL for enhanced security)
 - **Storage:** AWS S3 for media and static files using `django-storages`
 
 ### Frontend
-
-[HTML Validation Results](./docs/images/html-validation.png) - ***includes syntax errors due to tags (e.g., static files etc.)***
-[CSS Validation Results](./docs/images/css-validation.png)  
-[JS Validation Results](./docs/images/jshint-js-validation.png)
 
 - **HTML5 & CSS3:** Structuring and styling the web pages.
 - **Bootstrap 4:** For responsive design and pre-built UI components.
@@ -526,108 +535,6 @@ ShiftWise leverages a combination of modern technologies to deliver a robust and
 
 ---
 
-## Bugs and Fixes
-
-### 1. **Google Maps Autocomplete Console Errors**
-#### **Description**
-The following errors were encountered while implementing the Google Maps Autocomplete functionality:
-- `Uncaught ReferenceError: google is not defined`
-- `InvalidValueError: initAutocomplete is not a function`
-- Warning about loading the Google Maps API without `async` and `defer`.
-
-#### **Root Cause**
-1. The `initAutocomplete` function was not globally accessible.
-2. The Google Maps API script was not properly loaded in `async` and `defer` mode.
-3. The Google Maps API script was being referenced before it was fully loaded.
-
-#### **Fix**
-- The `initAutocomplete` function was explicitly assigned to the `window` object to make it globally accessible:
-  ```javascript
-  window.initAutocomplete = function () {
-      // Function code here
-  };
-  ```
-- Updated the Google Maps API script tag in `base.html` to include `async` and `defer` attributes:
-  ```html
-  <script async defer type="application/javascript" src="{% url 'core:google_maps_proxy' %}?libraries=places&callback=initAutocomplete"></script>
-  ```
-- Ensured that the script loading order was correct (jQuery → Google Maps API → custom JavaScript).
-
-### 2. **jQuery Dependency Error**
-#### **Description**
-`Uncaught ReferenceError: $ is not defined` error occurred because jQuery was not loaded before running the script.
-
-#### **Root Cause**
-The `address_autocomplete.js` script depended on jQuery, but jQuery was not loaded before executing the script.
-
-#### **Fix**
-- Ensured jQuery was loaded first in `base.html`:
-  ```html
-  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-  ```
-- Wrapped the autocomplete logic in a `$(document).ready()` block to ensure the DOM and jQuery were fully loaded:
-  ```javascript
-  $(document).ready(function () {
-      if (typeof google !== "undefined" && typeof google.maps !== "undefined") {
-          initAutocomplete();
-      } else {
-          console.error("Google Maps API is not loaded.");
-      }
-  });
-  ```
-
-### 3. **Proxy Endpoint Not Found (404 Error)**
-#### **Description**
-Requests to the Google Maps API proxy (`/proxy/google-maps-api.js`) resulted in a 404 Page Not Found error.
-
-#### **Root Cause**
-The Django URL route for the proxy endpoint was missing from `urls.py`.
-
-#### **Fix**
-- Added the following route in the `core/urls.py`:
-  ```python
-  from django.urls import path
-  from . import views
-
-  urlpatterns = [
-      path('proxy/google-maps-api.js', views.google_maps_proxy, name='google_maps_proxy'),
-  ]
-  ```
-- Verified that the `GOOGLE_PLACES_API_KEY` was correctly configured in the `settings.py` file and passed through the proxy.
-
-### 4. **General Performance Warnings**
-#### **Description**
-The console displayed warnings about loading the Google Maps API directly without `async` and `defer`.
-
-#### **Root Cause**
-Google Maps API was blocking the page load by not utilizing the `async` and `defer` attributes.
-
-#### **Fix**
-- Updated the `<script>` tag for the Google Maps API to use `async` and `defer`:
-  ```html
-  <script async defer type="application/javascript" src="{% url 'core:google_maps_proxy' %}?libraries=places&callback=initAutocomplete"></script>
-  ```
-
-### 5. **Suboptimal Map API Loading**
-#### **Description**
-The console displayed the following warning: "Google Maps JavaScript API has been loaded directly without loading=async."
-
-#### **Fix**
-- The warning was resolved by properly using `async` and `defer` attributes as shown above. This ensures that the Google Maps API is loaded asynchronously without blocking other resources.
-
-### **Verification and Deployment**
-After applying these fixes:
-- All autocomplete functionality works correctly without console errors.
-- The Google Maps API loads efficiently with no blocking issues.
-- Bugs and warnings related to jQuery, Google Maps, and script loading have been resolved.
-
----
-
-## Important Note
-These warnings/errors are cosmetic in nature and do not affect the functionality of the autocomplete feature or the overall application. They can safely be ignored during development. However, for production deployment:
-- Verify proper loading of the scripts.
-- Resolve any critical performance warnings.
-
 ## Setup and Deployment
 
 Deploying ShiftWise ensures that care home agencies can access the platform reliably and securely. Follow the steps below to set up and deploy ShiftWise both locally and to Heroku.
@@ -652,6 +559,7 @@ Before setting up ShiftWise, ensure you have the following installed:
    git clone https://github.com/yourusername/shiftwise.git
    cd shiftwise
    ```
+
 2. **Create a Virtual Environment**
 
    It's recommended to use a virtual environment to manage dependencies.
@@ -672,19 +580,23 @@ Before setting up ShiftWise, ensure you have the following installed:
    Create a `.env` file in the root directory and add the following configurations:
 
    ```env
+
 DEBUG=True
 SECRET_KEY=your-secret-key
-ALLOWED_HOSTS=localhost,127.0.0.1,https://your-heroku-app.herokuapp.com
+ALLOWED_HOSTS=localhost,127.0.0.1,<https://your-heroku-app.herokuapp.com>
 
 # Database Configuration
+
 DATABASE_URL=postgres://your_db_user:your_db_password@localhost:5432/shiftwise_db
 
 # Stripe Configuration
+
 STRIPE_SECRET_KEY=your-stripe-secret-key
 STRIPE_PUBLISHABLE_KEY=your-stripe-publishable-key
 STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
 
 # AWS S3 Configuration
+
 AWS_ACCESS_KEY_ID=your-aws-access-key
 AWS_SECRET_ACCESS_KEY=your-aws-secret-key
 AWS_STORAGE_BUCKET_NAME=your-s3-bucket-name
@@ -692,14 +604,17 @@ AWS_S3_REGION_NAME=your-region
 
 # Email Configuration
 
-DEFAULT_FROM_EMAIL=your-email@example.com
+DEFAULT_FROM_EMAIL=<your-email@example.com>
 
 # MFA Configuration
+
 MFA_TOTP_ISSUER=your-prefered-issuer-name
 MFA_TOTP_PERIOD=set-the-value
 
 # CSRF Trusted Origins
-CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+
+CSRF_TRUSTED_ORIGINS=<https://yourdomain.com,https://www.yourdomain.com>
+
    ```
 
    Note: Replace placeholder values with your actual credentials and API keys.
@@ -736,6 +651,99 @@ CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 9. **Access the Admin Interface**
 
    Open your browser and navigate to [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/) to log in with your superuser credentials.
+
+### API Configuration
+
+#### Google Places API Setup
+
+1. **Create Google Cloud Project**:
+   - Navigate to the [Google Cloud Console](https://console.cloud.google.com/).
+   - Create a new project and enable billing.
+
+2. **Enable Places API**:
+   - In the API Library, search for "Places API" and enable it.
+   - Create an API key with appropriate restrictions (HTTP referrers recommended).
+
+3. **Configure Environment Variables**:
+   - Add your API key to the `.env` file:
+
+     ```
+     GOOGLE_PLACES_API_KEY=your_api_key_here
+     ```
+
+4. **Proxy Implementation**:
+   - The application uses a proxy endpoint to secure the API key.
+   - Ensure the core app's URLs include the proxy route.
+
+#### Stripe Integration
+
+1. **Stripe Account Setup**:
+   - Create a [Stripe account](https://dashboard.stripe.com/register).
+   - Switch to test mode for development.
+
+2. **Create Products and Prices**:
+   - Configure subscription products matching the application's subscription tiers.
+   - Note the price IDs for each tier.
+
+3. **Configure Webhook**:
+   - Create a webhook endpoint in Stripe Dashboard.
+   - Set the endpoint URL to `https://your-domain.com/subscriptions/webhook/`.
+   - Select events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
+
+4. **Environment Variables**:
+   - Configure Stripe keys in your `.env` file:
+
+     ```
+     STRIPE_PUBLISHABLE_KEY=pk_test_...
+     STRIPE_SECRET_KEY=sk_test_...
+     STRIPE_WEBHOOK_SECRET=whsec_...
+     STRIPE_PRICE_BASIC=price_...
+     STRIPE_PRICE_PRO=price_...
+     STRIPE_PRICE_ENTERPRISE=price_...
+     ```
+
+### Developer Environment
+
+#### Working with MFA in Development
+
+1. **MFA Configuration**:
+   - MFA is implemented using TOTP (Time-based One-Time Password).
+   - Configure the issuer and period in your `.env`:
+
+     ```
+     MFA_TOTP_ISSUER=ShiftWise_Dev
+     MFA_TOTP_PERIOD=30
+     ```
+
+2. **Testing MFA**:
+   - Use Google Authenticator or another TOTP app for testing.
+   - For automated testing, use the test recovery codes displayed during MFA setup.
+
+3. **Bypassing MFA in Development**:
+   - During initial development, you can disable MFA by setting:
+
+     ```python
+     # settings.py (local development only)
+     MFA_REQUIRED = False  # Set to True in production
+     ```
+
+#### Signature Pad and Location Verification
+
+The shift completion system uses two specialized JavaScript implementations tailored to different user roles:
+
+1. **Signature Capture**:
+   - Utilizes SignaturePad.js with device pixel ratio compensation
+   - Converts signatures to base64-encoded data URLs for secure submission
+
+2. **Location Verification**:
+   - Leverages Geolocation API for coordinate capture
+   - Implements coordinate validation against assigned shift location
+   - Integrates OpenStreetMap reverse geocoding for address verification
+
+3. **Role-Specific Implementation**:
+   - `shift_complete.js` - For agency management to validate shift completions without enforcing location/signature requirements
+   - `shift_complete_modal.js` - For staff to complete their assigned shifts with required location verification and signature capture
+   - Both implementations include appropriate validation safeguards for their respective contexts
 
 ### Deploying to Heroku
 
@@ -961,7 +969,7 @@ ShiftWise leverages Django's powerful admin interface for managing shifts, assig
 - **Multi-Factor Authentication (MFA)**:
   - Users can enable MFA for enhanced security during login.
 
-### Shift Management
+### Shift Management Operations
 
 - **Creating Shifts**:
 
@@ -974,7 +982,7 @@ ShiftWise leverages Django's powerful admin interface for managing shifts, assig
 - **Managing Shifts**:
   - Shifts can be edited or deleted as needed. Status updates (active/inactive) help in tracking ongoing shift assignments.
 
-### Notifications (Provisioned but not fully configured - Needs to be setup using Django channels or Celery and Redis etc.)
+### Notifications in Usage
 
 - **Real-Time Alerts**:
 
@@ -983,16 +991,13 @@ ShiftWise leverages Django's powerful admin interface for managing shifts, assig
 - **Customization**:
   - Notification preferences can be adjusted in user settings to control the type and frequency of alerts.
 
-### Reporting Dashboard
+### Reporting Dashboard in Usage
 
 - **Analytics**:
 
-  - Visual representations of shift activities, attendance rates, and employee performance metrics..
+  - Visual representations of shift activities and other metrics..
 
-- **Export Options**:
-  - Generate reports in CSV for offline analysis and record-keeping.
-
-### Subscriptions
+### Subscriptions Management
 
 - **Plan Selection**:
 
@@ -1008,8 +1013,6 @@ ShiftWise leverages Django's powerful admin interface for managing shifts, assig
 ---
 
 ## Security Features
-
-![MFA-Enabled Pre-Login Verification](./docs/images/mfa-login-verification-page.png)
 
 ShiftWise prioritizes security to protect user data and ensure platform integrity. Below are key security measures implemented:
 
@@ -1032,8 +1035,7 @@ ShiftWise prioritizes security to protect user data and ensure platform integrit
 
   - Differentiates access levels between Superusers, Agency Owners, Agency Managers, and Agency Staff.
 
-![MFA User Setup](./docs/images/mfa-enabled.png)
-- **Multi-Factor Authentication (MFA)**: 
+- **Multi-Factor Authentication (MFA)**:
   - Adds an additional security layer during user login using TOTP.
 
 ### Data Validation and Sanitization
@@ -1108,57 +1110,27 @@ ShiftWise integrates with several external APIs to enhance functionality and use
 
 ## Testing
 
-Ensuring the reliability and robustness of ShiftWise is paramount. The project employs comprehensive testing strategies to validate functionality, performance, and security.
+ShiftWise has undergone extensive testing to ensure reliability across all features. For a comprehensive breakdown of testing methodologies, tools, results, and issue resolutions, please refer to our detailed [TESTING.md](./TESTING.md) document.
 
-### Testing Methodologies
+### Testing Overview
 
-[Tests/Debug Images](.docs/images/agency-account-test-creation.png)
-[Tests/Debug Images](.docs/images/debugging-errors-testing.png)
-[Tests/Debug Images](.docs/images/debug-error-sample.png)
-[Tests/Debug Images](.docs/images/docs/images/test-email-contact-form.png)
-[Tests/Debug Images](.docs/images/debug-error-sample.png)
-[Commit Validation](.docs/images/commits-validation-for-clarity-and-consistency-git-lens.png)
+- **Manual Testing**: All features were systematically tested across different user roles to verify functionality.
+- **Responsive Design Testing**: Tested across multiple devices and browsers using responsive design checkers.
+- **Code Validation**: All HTML, CSS, JavaScript, and Python code was validated using industry-standard tools.
+- **User Story Verification**: Each user story was tested to ensure the implemented features met requirements.
+- **Performance Testing**: Application was optimized using Django Debug Toolbar to identify and resolve bottlenecks.
 
-- **Unit Testing**: Unit Testing: Components from apps like shifts, accounts, etc., were tested and debugged to verify correct behavior.
-- **Integration Testing**: Ensures that different modules interact seamlessly. 
-- **End-to-End Testing**: Simulates real user scenarios to validate the complete workflow. Used Django management commands across accounts app, subscriptions etc.
-- **Security Testing**: Identifies and mitigates potential vulnerabilities in the application.
-- **Responsive Testing**: Verifies that the platform maintains usability and aesthetics across various devices and screen sizes.
+### Testing Documentation
 
-### Testing Tools
+The [TESTING.md](./TESTING.md) file contains detailed information about:
 
-[Coverage](.docs/images/automated-tests-setup.png)
-[Django Debug Toolbar - DJDT](.docs/images/django-debug-toolbar.png)
-[Django Debug Toolbar - DJDT](.docs/images/django-debug-toolbar.png)
+- Complete test cases and results
+- Validation screenshots and outcomes
+- Responsiveness test results
+- Bug tracking and resolution documentation
+- Performance optimization strategies
 
-- **Django Debug Toolbar**: For debugging errors and SQL queries.
-- **PyTest**: For writing and running test cases.
-- **Developer Tools**: For debugging and performance testing.
-- **Django's Test Framework**: Utilized for testing Django-specific functionalities.
-- **Coverage.py**: Measures code coverage to validate test coverage.
-
-### Running Tests
-
-1. **Activate the Virtual Environment**
-
-   ```bash
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. **Run the Test Suite**
-
-   ```bash
-   python manage.py test
-   ```
-
-3. **Generate Coverage Report**
-
-   ```bash
-   coverage run --source='.' manage.py test
-   coverage report
-   coverage html  # Generates an HTML report in the 'htmlcov' directory
-   ```
-
+This approach ensures thorough testing while maintaining separate documentation for improved clarity and organization.
 
 ---
 
@@ -1210,10 +1182,12 @@ While ShiftWise is feature-complete, the following enhancements are planned for 
 
 - **Mobile Application**: Develop native mobile apps for iOS and Android to offer on-the-go shift management.
 - **Advanced Reporting**: Introduce more in-depth analytics and customizable reports.
+- **Staff Wellbeing Platform**: Implement wellbeing check-ins, burnout prevention tools, and work-life balance monitoring to support workforce mental health.
+- **Performance Development Framework**: Create comprehensive performance tracking, feedback systems, and personal development plans for staff career growth.
 - **AI-Powered Scheduling**: Utilize machine learning to optimize shift assignments based on employee performance and preferences.
 - **Integration with Calendar Apps**: Allow users to sync shifts with Google Calendar, Outlook, etc.
 - **Enhanced Security Features**: Implement biometric authentication and advanced encryption methods.
-- **API for Third-Party Integrations**: Enable other applications to integrate with ShiftWise via a public API.
+- **Enhanced API for Third-Party Integrations**: Expand the current basic API implementation to provide comprehensive endpoints, documentation, and developer tools to facilitate deeper integrations with external systems and services.
 - **Multi-Language Support**: Expand the platform's accessibility by supporting multiple languages.
 - **Customizable Dashboards**: Allow users to personalize their dashboard views based on preferences.
 
