@@ -15,10 +15,7 @@ User = get_user_model()
 
 
 class TimestampedModel(models.Model):
-    """
-    Abstract model to track when records are created and last updated.
-    Inherited by other models.
-    """
+    """Abstract base model with creation and update timestamps"""
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -28,9 +25,7 @@ class TimestampedModel(models.Model):
 
 
 class Shift(TimestampedModel):
-    """
-    Represents a work shift managed by an agency.
-    """
+    """Work shift entity managed by an agency"""
 
     # Shift Type Choices
     REGULAR = "regular"
@@ -92,7 +87,7 @@ class Shift(TimestampedModel):
     end_time = models.TimeField()
     end_date = models.DateField(help_text="Specify the date when the shift ends.")
     is_overnight = models.BooleanField(
-        default=False, help_text="Check this box if the shift spans into the next day."
+        default=False, help_text="Indicates if shift spans into the next day."
     )
     capacity = models.PositiveIntegerField(default=1)
     agency = models.ForeignKey(
@@ -113,7 +108,7 @@ class Shift(TimestampedModel):
         max_length=100,
         choices=ROLE_CHOICES,
         default="Staff",
-        help_text="Select the role required for this shift.",
+        help_text="Role required for this shift."
     )
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2)
     notes = models.TextField(blank=True, null=True)
@@ -128,7 +123,7 @@ class Shift(TimestampedModel):
     duration = models.FloatField(null=True, blank=True)
     is_active = models.BooleanField(
         default=True,
-        help_text="Indicates whether the shift is active and available for assignments.",
+        help_text="Determines availability for assignments."
     )
 
     class Meta:
@@ -142,8 +137,7 @@ class Shift(TimestampedModel):
 
     def generate_shift_code(self):
         """
-        Generates a unique shift_code using agency_code and a UUID segment.
-        Format: <AGENCY_CODE>-<UUID_SEGMENT>
+        Creates unique shift code (format: <AGENCY_CODE>-<UUID_SEGMENT>)
         Example: AG-1A2B3C
         """
         unique_segment = uuid.uuid4().hex[:6].upper()
@@ -151,9 +145,9 @@ class Shift(TimestampedModel):
 
     def clean(self, skip_date_validation=False):
         """
-        Validates the Shift instance before saving.
-        Allows shifts to span into the next day within a 24-hour period.
-        The 'skip_date_validation' flag allows bypassing date checks when completing a shift.
+        Validates shift data and calculates duration
+        - Enforces date/time logic and 24-hour max duration
+        - Handles overnight shifts appropriately
         """
         super().clean()
 
@@ -215,7 +209,7 @@ class Shift(TimestampedModel):
 
     def save(self, *args, **kwargs):
         """
-        Validates the Shift and assigns shift_code when needed.
+        Manages shift_code generation and validation before saving
         """
         # Generate shift_code if missing and agency is set
         if not self.shift_code and self.agency:
@@ -239,16 +233,12 @@ class Shift(TimestampedModel):
             type(self).objects.filter(pk=self.pk).update(shift_code=self.shift_code)
 
     def get_absolute_url(self):
-        """
-        Returns the URL to access a particular shift instance.
-        """
+        """URL for shift detail view"""
         return reverse("shifts:shift_detail", kwargs={"pk": self.pk})
 
     @property
     def available_slots(self):
-        """
-        Returns the number of available slots for the shift.
-        """
+        """Number of remaining assignment slots"""
         assigned_count = self.assignments.filter(
             status=ShiftAssignment.CONFIRMED
         ).count()
@@ -256,16 +246,14 @@ class Shift(TimestampedModel):
 
     @property
     def is_full(self):
-        """
-        Returns True if the shift is fully booked.
-        """
+        """Checks if all capacity slots are filled"""
         return self.available_slots <= 0
 
 
 class ShiftAssignment(TimestampedModel):
     """
-    Associates a worker with a specific shift.
-    Workers can only be assigned to shifts within their own agency.
+    Links workers to shifts within their agency
+    Enforces cross-agency assignment restrictions
     """
 
     # Assignment Status Choices
@@ -315,7 +303,7 @@ class ShiftAssignment(TimestampedModel):
         choices=ATTENDANCE_STATUS_CHOICES,
         null=True,
         blank=True,
-        help_text="Select attendance status after completing the shift.",
+        help_text="Post-shift attendance record"
     )
     completion_latitude = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True
@@ -342,7 +330,10 @@ class ShiftAssignment(TimestampedModel):
 
     def clean(self):
         """
-        Validates the ShiftAssignment instance before saving.
+        Enforces assignment business rules:
+        - Validates worker-agency relationship
+        - Prevents cross-agency assignments
+        - Enforces capacity limits
         """
         super().clean()
 
@@ -352,14 +343,13 @@ class ShiftAssignment(TimestampedModel):
                 "Worker must be associated with an agency to be assigned to a shift."
             )
 
-        # Validate that the worker's agency matches the shift's agency
-        # This applies to all users, including superusers (business rule)
+        # Enforce agency isolation - workers can only be assigned to shifts within their agency
         if self.shift.agency != self.worker.profile.agency:
             raise ValidationError(
                 f"Worker {self.worker.get_full_name()} belongs to {self.worker.profile.agency.name} agency, but this shift belongs to {self.shift.agency.name}. Cross-agency assignments are not allowed."
             )
 
-        # Prevent assignment if shift is full and status is CONFIRMED
+        # Check capacity constraints for confirmed assignments
         if self.shift.is_full and self.status == self.CONFIRMED:
             raise ValidationError(
                 "Cannot confirm assignment. The shift is already full."
@@ -367,7 +357,7 @@ class ShiftAssignment(TimestampedModel):
 
     def save(self, *args, **kwargs):
         """
-        Overrides the save method to ensure clean is called.
+        Validates business rules before saving unless explicitly bypassed
         """
         bypass_validation = kwargs.pop("bypass_validation", False)
         if not bypass_validation:
@@ -376,9 +366,7 @@ class ShiftAssignment(TimestampedModel):
 
 
 class StaffPerformance(models.Model):
-    """
-    Represents the performance metrics of a staff member.
-    """
+    """Performance metrics for staff on specific shifts"""
 
     STATUS_CHOICES = [
         ("Excellent", "Excellent"),
@@ -413,7 +401,9 @@ class StaffPerformance(models.Model):
 
     def clean(self):
         """
-        Validates the StaffPerformance instance before saving.
+        Validates score ranges:
+        - Wellness: 0-100
+        - Performance: 0-5
         """
         super().clean()
 
