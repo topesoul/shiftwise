@@ -4,7 +4,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 
@@ -13,7 +13,6 @@ from shifts.forms import AssignWorkerForm
 from shifts.models import Shift, ShiftAssignment, User
 from core.utils import ajax_response_with_message
 
-# Initialize logger
 logger = logging.getLogger(__name__)
 
 
@@ -21,8 +20,8 @@ class AssignWorkerView(
     LoginRequiredMixin, AgencyManagerRequiredMixin, FeatureRequiredMixin, View
 ):
     """
-    Assigns a worker to a specific shift.
-    Handles POST requests from the Shift Detail page.
+    Handles worker assignment to shifts via POST requests.
+    Supports both AJAX and standard form submissions.
     """
 
     required_features = ["shift_management"]
@@ -31,10 +30,9 @@ class AssignWorkerView(
         user = request.user
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
 
-        # Check if this is an AJAX request
+        # Determine request type for appropriate response handling
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-        # Extract worker ID and role from POST data
         worker_id = request.POST.get("worker")
         role = request.POST.get("role") or "Staff"  # Default role
 
@@ -47,15 +45,17 @@ class AssignWorkerView(
 
         worker = get_object_or_404(User, id=worker_id)
 
-        # Permission check: Ensure worker belongs to the same agency
-        if not user.is_superuser and worker.profile.agency != shift.agency:
+        # Verify worker belongs to the shift's agency - business rule
+        if worker.profile.agency != shift.agency:
             if is_ajax:
-                return ajax_response_with_message(False, "You cannot assign workers from a different agency.")
+                return ajax_response_with_message(False, 
+                    f"Worker {worker.get_full_name()} belongs to {worker.profile.agency.name} agency, but this shift belongs to {shift.agency.name} agency. Cross-agency assignments are not allowed.")
             else:
-                messages.error(request, "You cannot assign workers from a different agency.")
+                messages.error(request, 
+                    f"Worker {worker.get_full_name()} belongs to {worker.profile.agency.name} agency, but this shift belongs to {shift.agency.name} agency. Cross-agency assignments are not allowed.")
                 return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Check if the shift is already full
+        # Shift capacity validation
         if shift.is_full:
             if is_ajax:
                 return ajax_response_with_message(False, "Cannot assign worker. The shift is already full.")
@@ -63,7 +63,7 @@ class AssignWorkerView(
                 messages.error(request, "Cannot assign worker. The shift is already full.")
                 return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Check if the worker is already assigned to the shift
+        # Prevent duplicate assignments
         if ShiftAssignment.objects.filter(shift=shift, worker=worker).exists():
             if is_ajax:
                 return ajax_response_with_message(False, f"Worker {worker.get_full_name()} is already assigned to this shift.")
@@ -71,7 +71,7 @@ class AssignWorkerView(
                 messages.error(request, f"Worker {worker.get_full_name()} is already assigned to this shift.")
                 return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Validate role
+        # Validate role selection
         if role not in dict(ShiftAssignment.ROLE_CHOICES).keys():
             if is_ajax:
                 return ajax_response_with_message(False, "Invalid role selected.")
@@ -79,7 +79,7 @@ class AssignWorkerView(
                 messages.error(request, "Invalid role selected.")
                 return redirect("shifts:shift_detail", pk=shift.id)
 
-        # Create the ShiftAssignment
+        # Process assignment creation
         try:
             ShiftAssignment.objects.create(
                 shift=shift, worker=worker, role=role, status=ShiftAssignment.CONFIRMED
@@ -99,11 +99,13 @@ class AssignWorkerView(
                 return redirect("shifts:shift_detail", pk=shift.id)
                 
         except Exception as e:
+            error_message = f"Error assigning worker: {str(e)}"
+            logger.exception(f"Unexpected error when assigning worker {worker.id} to shift {shift.id}: {e}")
+            
             if is_ajax:
-                return ajax_response_with_message(False, "An unexpected error occurred while assigning the worker.")
+                return ajax_response_with_message(False, error_message)
             else:
-                messages.error(request, "An unexpected error occurred while assigning the worker.")
-                logger.exception(f"Unexpected error when assigning worker: {e}")
+                messages.error(request, error_message)
                 return redirect("shifts:shift_detail", pk=shift.id)
 
 
@@ -111,18 +113,40 @@ class UnassignWorkerView(
     LoginRequiredMixin, AgencyManagerRequiredMixin, FeatureRequiredMixin, View
 ):
     """
-    Allows agency managers or superusers to unassign a worker from a specific shift.
-    Handles POST requests from the Shift Detail page.
+    Manages worker removal from shifts with confirmation step.
+    Restricted to agency managers for shifts within their agency.
     """
 
     required_features = ["shift_management"]
+    
+    def get(self, request, shift_id, assignment_id, *args, **kwargs):
+        user = request.user
+        shift = get_object_or_404(Shift, id=shift_id, is_active=True)
+        assignment = get_object_or_404(ShiftAssignment, id=assignment_id, shift=shift)
+        
+        # Agency permission boundary enforcement
+        if not user.is_superuser:
+            if shift.agency != user.profile.agency:
+                messages.error(
+                    request,
+                    "You do not have permission to unassign workers from this shift.",
+                )
+                logger.warning(
+                    f"User {user.username} attempted to unassign worker from shift {shift.id} outside their agency."
+                )
+                return redirect("shifts:shift_detail", pk=shift_id)
+                
+        return render(request, "shifts/unassign_worker_confirm.html", {
+            "shift": shift,
+            "assignment": assignment
+        })
 
     def post(self, request, shift_id, assignment_id, *args, **kwargs):
         user = request.user
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
         assignment = get_object_or_404(ShiftAssignment, id=assignment_id, shift=shift)
 
-        # Permission Checks
+        # Agency permission boundary enforcement
         if not user.is_superuser:
             if shift.agency != user.profile.agency:
                 messages.error(
@@ -134,7 +158,6 @@ class UnassignWorkerView(
                 )
                 return redirect("shifts:shift_detail", pk=shift_id)
 
-        # Perform Unassignment
         try:
             worker_full_name = assignment.worker.get_full_name()
             assignment.delete()
