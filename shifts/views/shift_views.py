@@ -28,7 +28,6 @@ from shifts.forms import (
 from shifts.models import Shift, ShiftAssignment
 from shiftwise.utils import generate_shift_code, haversine_distance
 
-# Initialize logger
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
@@ -41,10 +40,7 @@ class ShiftListView(
     FeatureRequiredMixin,
     ListView,
 ):
-    """
-    Displays a list of shifts with filtering options.
-    Accessible to agency staff, agency managers, and superusers.
-    """
+    """List view for shifts with filtering capabilities"""
 
     required_features = ["shift_management"]
     model = Shift
@@ -61,7 +57,7 @@ class ShiftListView(
             agency = user.profile.agency
             queryset = queryset.filter(agency=agency)
 
-        # Annotate with number of assignments and is_full_shift
+        # Annotate with assignment counts and fullness status
         queryset = queryset.annotate(
             assignments_count=Count("assignments"),
             is_full_shift=Case(
@@ -71,7 +67,7 @@ class ShiftListView(
             ),
         )
 
-        # Apply filters
+        # Process filter form
         self.filter_form = ShiftFilterForm(self.request.GET or None)
         if self.filter_form.is_valid():
             date_from = self.filter_form.cleaned_data.get("date_from")
@@ -112,7 +108,7 @@ class ShiftListView(
                     | Q(country__icontains=address)
                 )
 
-        # Annotate with is_assigned
+        # Add assignment status for current user
         assignments = ShiftAssignment.objects.filter(shift=OuterRef("pk"), worker=user)
         queryset = queryset.annotate(is_assigned=Exists(assignments))
 
@@ -144,10 +140,7 @@ class ShiftDetailView(
     FeatureRequiredMixin,
     DetailView,
 ):
-    """
-    Displays details of a specific shift, including assigned and available workers.
-    Accessible to agency staff, agency owners/managers, and superusers.
-    """
+    """Detail view for shifts with role-based access control"""
 
     required_features = ["shift_management"]
     model = Shift
@@ -218,7 +211,7 @@ class ShiftDetailView(
         user = self.request.user
         profile = user.profile if hasattr(user, "profile") else None
 
-        # Calculate distance if user has a registered address and shift has coordinates
+        # Calculate distance if coordinates available
         distance = None
         if (
             profile
@@ -235,18 +228,19 @@ class ShiftDetailView(
                 unit="miles",
             )
 
-        # Annotate with number of assignments
+        # Assignment data
         shift.assignments_count = shift.assignments.filter(
             status=ShiftAssignment.CONFIRMED
         ).count()
 
         context["distance_to_shift"] = distance
 
-        # Check if the user is assigned to this shift
+        # Check assignment status for current user
         context["is_assigned"] = ShiftAssignment.objects.filter(
             shift=shift, worker=user
         ).exists()
 
+        # Set permission flags
         context["can_book"] = (
             user.groups.filter(name="Agency Staff").exists()
             and not shift.is_full
@@ -263,20 +257,18 @@ class ShiftDetailView(
             else False
         )
 
-        # Only include assigned_workers if user is superuser or agency manager or agency owner
-        if (
+        # Management permissions
+        is_manager = (
             user.is_superuser
             or user.groups.filter(name="Agency Managers").exists()
             or user.groups.filter(name="Agency Owners").exists()
-        ):
+        )
+        
+        if is_manager:
             context["assigned_workers"] = shift.assignments.all()
             context["can_assign_workers"] = True
-        else:
-            context["assigned_workers"] = None
-            context["can_assign_workers"] = False
-
-        # For assigning workers
-        if context["can_assign_workers"]:
+            
+            # Worker assignment data
             if user.is_superuser:
                 available_workers = User.objects.filter(
                     groups__name="Agency Staff",
@@ -290,7 +282,7 @@ class ShiftDetailView(
                 ).exclude(shift_assignments__shift=shift)
             context["available_workers"] = available_workers
 
-            # Initialize AssignWorkerForm for each available worker with 'worker' as a kwarg
+            # Worker assignment forms
             assign_forms = []
             for worker in available_workers:
                 form = AssignWorkerForm(
@@ -302,11 +294,13 @@ class ShiftDetailView(
             context["assign_forms"] = assign_forms
             context["role_choices"] = ShiftAssignment.ROLE_CHOICES
         else:
+            context["assigned_workers"] = None
+            context["can_assign_workers"] = False
             context["available_workers"] = None
             context["assign_forms"] = []
             context["role_choices"] = ShiftAssignment.ROLE_CHOICES
 
-        # Add ShiftCompletionForm to context if the modal is included
+        # Add completion form if needed
         if (
             user.is_superuser
             or user.groups.filter(
@@ -327,10 +321,7 @@ class ShiftCreateView(
     SuccessMessageMixin,
     CreateView,
 ):
-    """
-    Allows agency managers and superusers to create new shifts.
-    Superusers can assign shifts to any agency.
-    """
+    """Create view for shifts with agency and subscription validation"""
 
     required_features = ["shift_management"]
     model = Shift
@@ -340,9 +331,7 @@ class ShiftCreateView(
     success_message = "Shift has been created successfully."
 
     def dispatch(self, request, *args, **kwargs):
-        """
-        Ensure that non-superusers have an associated agency before creating a shift.
-        """
+        """Verify agency association before allowing shift creation"""
         if not request.user.is_superuser:
             if not hasattr(request.user, "profile") or not request.user.profile.agency:
                 messages.error(request, "You are not associated with any agency.")
@@ -353,28 +342,22 @@ class ShiftCreateView(
         return super().dispatch(request, *args, **kwargs)
 
     def get_form_kwargs(self):
-        """
-        Pass the user instance to the form to handle conditional fields.
-        """
         kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user  # Pass the user to the form
+        kwargs["user"] = self.request.user
         return kwargs
 
     def form_valid(self, form):
         shift = form.save(commit=False)
         if self.request.user.is_superuser:
-            # Superuser must assign an agency
             agency = form.cleaned_data.get("agency")
             shift.agency = agency
         else:
-            # Agency managers assign shifts to their own agency
             agency = self.request.user.profile.agency
             shift.agency = agency
 
-            # Check shift limit
+            # Verify shift limit compliance
             subscription = agency.subscription
             if subscription and subscription.plan.shift_limit is not None:
-                # Count shifts created this month
                 current_time = timezone.now()
                 current_month_start = current_time.replace(
                     day=1, hour=0, minute=0, second=0, microsecond=0
@@ -392,20 +375,18 @@ class ShiftCreateView(
                     )
                     return redirect("subscriptions:upgrade_subscription")
 
-        # Generate a unique shift code if not already set
+        # Generate unique shift code if needed
         if not shift.shift_code:
             shift.shift_code = generate_shift_code()
 
-        # Save the shift
         shift.save()
         form.save_m2m()
 
-        # Success message handled by SuccessMessageMixin
         logger.info(
             f"Shift '{shift.name}' created by {self.request.user.username} for agency {agency.name}."
         )
         return super().form_valid(form)
-
+        
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["GOOGLE_PLACES_API_KEY"] = settings.GOOGLE_PLACES_API_KEY
@@ -421,10 +402,7 @@ class ShiftUpdateView(
     SuccessMessageMixin,
     UpdateView,
 ):
-    """
-    Allows agency managers and superusers to update existing shifts.
-    Superusers can change the agency of a shift.
-    """
+    """Update view for shifts with role-based access controls"""
 
     required_features = ["shift_management"]
     model = Shift
@@ -434,9 +412,6 @@ class ShiftUpdateView(
     success_message = "Shift has been updated successfully."
 
     def get_form_kwargs(self):
-        """
-        Pass the user instance to the form to handle conditional fields.
-        """
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
         return kwargs
@@ -444,32 +419,17 @@ class ShiftUpdateView(
     def form_valid(self, form):
         shift = form.save(commit=False)
         if self.request.user.is_superuser:
-            # Superuser can change the agency if provided
             agency = form.cleaned_data.get("agency")
             if agency:
                 shift.agency = agency
         else:
-            # Agency managers cannot change the agency of a shift
             shift.agency = self.request.user.profile.agency
 
-        # Do not regenerate shift code on update
-        # Save the shift
         shift.save()
         form.save_m2m()
 
-        # Success message handled by SuccessMessageMixin
         logger.info(f"Shift '{shift.name}' updated by {self.request.user.username}.")
         return super().form_valid(form)
-
-    def form_invalid(self, form):
-        """
-        Handle invalid form submissions.
-        """
-        messages.error(
-            self.request,
-            "There was an error updating the shift. Please correct the errors below.",
-        )
-        return super().form_invalid(form)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -486,10 +446,7 @@ class ShiftDeleteView(
     SuccessMessageMixin,
     DeleteView,
 ):
-    """
-    Allows agency managers and superusers to deactivate a shift.
-    Superusers can deactivate any shift regardless of agency association.
-    """
+    """Soft-delete implementation for shifts"""
 
     required_features = ["shift_management"]
     model = Shift
