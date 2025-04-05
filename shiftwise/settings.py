@@ -6,15 +6,15 @@ from pathlib import Path
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 
-# Load environment variables from env.py if it exists
+# Load env.py if it exists
 if os.path.exists("env.py"):
     import env  # noqa
 
-# Base directory of the project
+# Project root directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # -----------------------------------------------------------------------------
-# Security Settings
+# Security
 # -----------------------------------------------------------------------------
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -24,13 +24,12 @@ if not SECRET_KEY or len(SECRET_KEY) < 50 or SECRET_KEY.startswith("django-insec
         "and not start with 'django-insecure-'."
     )
 
-# DEBUG logic
 DEBUG = os.getenv("DEBUG") == "True"
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()]
 
-# If in DEBUG mode, allow localhost and 127.0.0.1
+# Add development hosts when in debug mode
 if DEBUG:
     ALLOWED_HOSTS.extend(["127.0.0.1", "localhost"])
 
@@ -47,7 +46,7 @@ if not FIELD_ENCRYPTION_KEY:
 AUTH_USER_MODEL = "accounts.User"
 
 INSTALLED_APPS = [
-    # Default Django apps
+    # Django core
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -56,7 +55,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django.contrib.humanize",
-    # Third-party apps
+    # Third-party
     "storages",
     "crispy_forms",
     "crispy_bootstrap4",
@@ -67,7 +66,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     "allauth.mfa",
     "allauth.usersessions",
-    # Your apps
+    # Project apps
     "accounts.apps.AccountsConfig",
     "core",
     "subscriptions",
@@ -84,8 +83,7 @@ CRISPY_TEMPLATE_PACK = "bootstrap4"
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    # Uncomment the line below if using Django Debug Toolbar
-    # 'debug_toolbar.middleware.DebugToolbarMiddleware',
+    # "debug_toolbar.middleware.DebugToolbarMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "allauth.usersessions.middleware.UserSessionsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -97,7 +95,7 @@ MIDDLEWARE = [
 ]
 
 # -----------------------------------------------------------------------------
-# Message Framework Configuration
+# Message Framework
 # -----------------------------------------------------------------------------
 
 from django.contrib.messages import constants as messages
@@ -129,12 +127,10 @@ TEMPLATES = [
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
-                # Default context processors
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",  # Required by allauth
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # Custom context processors
                 "accounts.context_processors.user_roles_and_subscriptions",
                 "core.context_processors.google_places_api_key",
             ],
@@ -148,7 +144,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "shiftwise.wsgi.application"
 
 # -----------------------------------------------------------------------------
-# Database Configuration
+# Database
 # -----------------------------------------------------------------------------
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -163,7 +159,7 @@ DATABASES = {
     )
 }
 
-# Configure SSL for PostgreSQL database
+# Enable SSL for PostgreSQL
 DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
 
 # -----------------------------------------------------------------------------
@@ -204,7 +200,7 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # -----------------------------------------------------------------------------
-# Allauth Configuration
+# Authentication & Allauth
 # -----------------------------------------------------------------------------
 
 AUTHENTICATION_BACKENDS = (
@@ -214,7 +210,7 @@ AUTHENTICATION_BACKENDS = (
 SITE_ID = 1
 LOGIN_REDIRECT_URL = "/"
 
-# MFA Configuration
+# MFA settings
 MFA_ADAPTER = "allauth.mfa.adapter.DefaultMFAAdapter"
 MFA_FORMS = {
     "authenticate": "allauth.mfa.base.forms.AuthenticateForm",
@@ -228,12 +224,12 @@ MFA_TOTP_PERIOD = 30
 MFA_TOTP_DIGITS = 6
 MFA_TOTP_ISSUER = "ShiftWise"
 
-# User Sessions Configuration
+# User session tracking
 USERSESSIONS_ADAPTER = "allauth.usersessions.adapter.DefaultUserSessionsAdapter"
 USERSESSIONS_TRACK_ACTIVITY = True
 ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 
-# Allauth email settings
+# Email settings
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
@@ -241,12 +237,16 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 
-# Rate limiting for authentication
-ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
-ACCOUNT_LOGIN_ATTEMPTS_TIMEOUT = 300  # seconds
+# Rate limiting config
+ACCOUNT_RATE_LIMITS = {
+    'login_failed': {'attempts': 5, 'timeout': 300},
+    # 'login_success': {'attempts': 10, 'timeout': 86400},
+    # 'signup': {'attempts': 5, 'timeout': 86400},
+    # 'confirm_email': {'attempts': 3, 'timeout': 300},
+}
 
 # -----------------------------------------------------------------------------
-# Email Configuration
+# Email
 # -----------------------------------------------------------------------------
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -265,14 +265,13 @@ ADMINS = [
 ]
 
 # -----------------------------------------------------------------------------
-# Stripe Configuration
+# Stripe
 # -----------------------------------------------------------------------------
 
 STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
-# Plan configuration
 STRIPE_PRICE_IDS = {
     "Basic": os.getenv("STRIPE_PRICE_BASIC"),
     "Pro": os.getenv("STRIPE_PRICE_PRO"),
@@ -280,14 +279,14 @@ STRIPE_PRICE_IDS = {
 }
 
 # -----------------------------------------------------------------------------
-# CSRF Trusted Origins
+# CSRF
 # -----------------------------------------------------------------------------
 
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if origin.strip()]
 
 # -----------------------------------------------------------------------------
-# Logging Configuration
+# Logging
 # -----------------------------------------------------------------------------
 
 LOGGING = {
@@ -329,7 +328,6 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
-        # Add logging for storages and boto3
         "storages": {
             "handlers": ["console"],
             "level": "DEBUG",
@@ -349,27 +347,23 @@ LOGGING = {
 }
 
 # -----------------------------------------------------------------------------
-# Static and Media Files Configuration
+# Static & Media Files
 # -----------------------------------------------------------------------------
 
 USE_AWS = os.getenv("USE_AWS", "False") == "True"
 
-# Always define STATICFILES_DIRS
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# Always define STATICFILES_FINDERS
 STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
 
 if USE_AWS:
-    # AWS S3 settings
     AWS_S3_OBJECT_PARAMETERS = {
         "CacheControl": "max-age=86400",  # 1 day
     }
 
-    # AWS Credentials
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
     AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -391,14 +385,11 @@ if USE_AWS:
         f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
     )
 
-    # Disable default ACLs
     AWS_DEFAULT_ACL = None
 
-    # Static and Media settings
     STATICFILES_LOCATION = "static"
     MEDIAFILES_LOCATION = "media"
 
-    # **New STORAGES setting**
     STORAGES = {
         "default": {
             "BACKEND": "custom_storages.MediaStorage",
@@ -408,21 +399,18 @@ if USE_AWS:
         },
     }
 
-    # Static and media URLs
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATICFILES_LOCATION}/"
     MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIAFILES_LOCATION}/"
 
-    # Define STATIC_ROOT to prevent collectstatic errors
-    STATIC_ROOT = BASE_DIR / "staticfiles"  # Unused but required by Django
+    STATIC_ROOT = BASE_DIR / "staticfiles"
 else:
-    # Local static and media files settings
     STATIC_URL = "/static/"
     STATIC_ROOT = BASE_DIR / "staticfiles"
     MEDIA_URL = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"
 
 # -----------------------------------------------------------------------------
-# Security Settings for Production
+# Production Security
 # -----------------------------------------------------------------------------
 
 if not DEBUG:
