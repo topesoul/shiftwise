@@ -1,0 +1,8 @@
+Hello {{ user.first_name }},
+
+Your ShiftWise account has been deactivated by {{ deactivated_by }}.
+
+If you have any questions regarding this action, please contact your agency administrator.
+
+Best regards,
+ShiftWise Team
