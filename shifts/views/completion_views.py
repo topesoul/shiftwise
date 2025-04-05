@@ -1,5 +1,6 @@
 # /workspace/shiftwise/shifts/views/completion_views.py
 
+import base64
 import logging
 import uuid
 
