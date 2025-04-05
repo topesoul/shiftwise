@@ -1,26 +1,15 @@
 // /static/js/profile.js
 
-/**
- * Profile page functionality:
- * - Handles modal display and persistence based on form validation status.
- * - Implements client-side form validation with real-time feedback.
- * - Initializes address auto-completion on modal display.
- */
+// Profile page enhancements for form validation and address functionality
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Profile.js loaded");
-
     const profileModal = document.getElementById('updateProfileModal');
     const profileForm = profileModal ? profileModal.querySelector('form') : null;
     const profileData = document.getElementById('profile-data');
 
-    console.log("Profile modal found:", !!profileModal);
-    console.log("Profile form found:", !!profileForm);
-    console.log("Has errors:", profileData ? profileData.dataset.hasErrors : 'No profile data');
+    console.log("Profile.js loaded");
 
-    // Show modal if the form contains errors from server-side validation.
+    // Display modal if server-side validation detected errors
     if (profileData && profileData.dataset.hasErrors === 'true') {
-        console.log("Form has errors, showing modal");
-
         if (typeof $ !== 'undefined') {
             $('#updateProfileModal').modal({
                 backdrop: 'static',
@@ -32,13 +21,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (profileForm) {
         profileForm.addEventListener('submit', function(event) {
-            console.log("Form submission attempted");
-
+            // Block invalid form submission and focus first error
             if (!profileForm.checkValidity() || !validateProfileForm(profileForm)) {
                 event.preventDefault();
                 event.stopPropagation();
-
-                console.log("Validation failed, keeping modal open");
 
                 if (typeof $ !== 'undefined') {
                     $('#updateProfileModal').modal('show');
@@ -47,14 +33,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const firstInvalid = profileForm.querySelector('.is-invalid') ||
                     profileForm.querySelector(':invalid');
                 if (firstInvalid) {
-                    console.log("Focusing first invalid field:", firstInvalid.id || 'unnamed');
                     firstInvalid.focus();
                 }
-            } else {
-                console.log("Form validation passed, submitting");
             }
         });
 
+        // Real-time field validation
         profileForm.querySelectorAll('input, select, textarea').forEach(function(field) {
             field.addEventListener('blur', function() {
                 validateField(field);
@@ -66,36 +50,87 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initialize address auto-completion when the modal is displayed.
+    // Initialize Google Maps address autocomplete when modal opens
     if (profileModal && typeof $ !== 'undefined') {
         $(profileModal).on('shown.bs.modal', function() {
-            console.log("Profile modal shown, initializing address fields");
-
             setTimeout(function() {
                 if (window.google && window.google.maps && window.google.maps.places) {
-                    console.log("Google Maps available, setting up address fields");
-
                     const addressFields = profileModal.querySelectorAll('.address-autocomplete');
-                    console.log("Found " + addressFields.length + " address fields in modal");
-
+                    
                     for (let i = 0; i < addressFields.length; i++) {
-                        if (window.setupAddressField) {
-                            window.setupAddressField(addressFields[i]);
-                        } else {
-                            console.error("setupAddressField function not available");
+                        const field = addressFields[i];
+                        
+                        // Try using global autocomplete functions first
+                        if (typeof window.setupAutocomplete === 'function') {
+                            window.setupAutocomplete(field);
+                        } 
+                        else if (typeof window.setupAddressField === 'function') {
+                            window.setupAddressField(field);
+                        }
+                        // Fallback implementation if global functions unavailable
+                        else {
+                            try {
+                                // Skip if already initialized
+                                if (!field._hasAutocomplete) {
+                                    const autocomplete = new google.maps.places.Autocomplete(field, {
+                                        types: ['address'],
+                                        componentRestrictions: { country: ['gb'] },
+                                        fields: ['address_components', 'geometry', 'formatted_address']
+                                    });
+                                    
+                                    field._hasAutocomplete = true;
+                                    
+                                    autocomplete.addListener('place_changed', function() {
+                                        const place = autocomplete.getPlace();
+                                        if (!place.geometry) return;
+                                        
+                                        const form = field.closest('form');
+                                        if (!form) return;
+                                        
+                                        // Populate form fields with selected address
+                                        const address1 = form.querySelector('#id_address_line1, [name="address_line1"]');
+                                        const city = form.querySelector('#id_city, [name="city"]');
+                                        const county = form.querySelector('#id_county, [name="county"]');
+                                        const postcode = form.querySelector('#id_postcode, [name="postcode"]');
+                                        
+                                        if (address1) {
+                                            const parts = place.formatted_address.split(',');
+                                            address1.value = parts[0].trim();
+                                        }
+                                        
+                                        if (city) {
+                                            // Extract city from components or default to London
+                                            let cityValue = '';
+                                            
+                                            for (const component of place.address_components) {
+                                                if (component.types.includes('postal_town') && !cityValue) {
+                                                    cityValue = component.long_name;
+                                                }
+                                                else if (component.types.includes('locality') && !cityValue) {
+                                                    cityValue = component.long_name;
+                                                }
+                                            }
+                                            
+                                            city.value = cityValue || "London";
+                                            
+                                            if (city.value) {
+                                                city.dispatchEvent(new Event('change', { bubbles: true }));
+                                            }
+                                        }
+                                    });
+                                }
+                            } catch (e) {
+                                console.error("Fallback autocomplete failed:", e);
+                            }
                         }
                     }
-                } else {
-                    console.log("Google Maps not yet available");
                 }
             }, 300);
         });
     }
 
     /**
-     * Validates a single form field.
-     * @param {HTMLElement} field - The form field to validate.
-     * @returns {boolean} - True if the field is valid, false otherwise.
+     * Validates individual form field based on type and requirements
      */
     function validateField(field) {
         let isValid = true;
@@ -107,11 +142,13 @@ document.addEventListener('DOMContentLoaded', function() {
             feedback.style.display = 'none';
         }
 
+        // Required field validation
         if (field.hasAttribute('required') && !field.value.trim()) {
             showFieldError(field, 'This field is required');
             isValid = false;
         }
 
+        // UK postcode format validation
         if (field.id === 'id_postcode' && field.value.trim()) {
             const ukPostcodeRegex = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i;
             if (!ukPostcodeRegex.test(field.value.trim())) {
@@ -120,6 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
+        // UK phone number format validation
         if (field.id === 'id_agency_phone_number' && field.value.trim()) {
             const cleanedNumber = field.value.replace(/[\s\-\(\)]/g, '');
             const ukPhoneRegex = /^(\+44\d{10}|0\d{10})$/;
@@ -137,9 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Validates the entire profile form.
-     * @param {HTMLFormElement} form - The form to validate.
-     * @returns {boolean} - True if the form is valid, false otherwise.
+     * Validates entire form and adds error summary if needed
      */
     function validateProfileForm(form) {
         let isValid = true;
@@ -150,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
             isValid = isValid && fieldValid;
         }
 
-        // Display a summary message if there are errors.
+        // Add or remove validation summary message
         let existingSummary = form.querySelector('.validation-summary');
         if (!isValid) {
             if (!existingSummary) {
@@ -173,13 +209,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Displays an error message for a specific form field.
-     * @param {HTMLElement} field - The form field to display the error for.
-     * @param {string} message - The error message to display.
+     * Displays inline error for a form field
      */
     function showFieldError(field, message) {
-        console.log("Error in field " + (field.id || 'unnamed') + ": " + message);
-
         field.classList.add('is-invalid');
 
         let feedback = field.nextElementSibling;
