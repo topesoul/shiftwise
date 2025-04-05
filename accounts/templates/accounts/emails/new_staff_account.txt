@@ -1,0 +1,13 @@
+Hello {{ user.first_name }},
+
+Welcome to ShiftWise! An account has been created for you by {{ created_by }}.
+
+Username: {{ user.username }}
+Password: {{ password }}
+
+Please log in at {{ login_url }} and change your password as soon as possible.
+
+You have been assigned to {{ agency.name }}.
+
+Best regards,
+ShiftWise Team
