@@ -2,6 +2,7 @@
 
 import logging
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -147,6 +148,14 @@ class StaffCreateView(
 
     def form_valid(self, form):
         user = form.save(commit=False)
+        
+        # Generate a random password for the new user
+        from core.utils import generate_random_password, send_notification_email
+        raw_password = generate_random_password()
+        user.set_password(raw_password)
+        
+        # Determine agency for the user
+        agency = None
         if not self.request.user.is_superuser:
             agency = self.request.user.profile.agency
             if not agency:
@@ -164,14 +173,44 @@ class StaffCreateView(
             user.profile.travel_radius = form.cleaned_data.get("travel_radius") or 0.0
             user.profile.save()
         else:
+            agency = form.cleaned_data.get("agency")
             user.save()
+            
         # Add to 'Agency Staff' group
         agency_staff_group, _ = Group.objects.get_or_create(name="Agency Staff")
         user.groups.add(agency_staff_group)
-        # Success message handled by mixin
-        logger.info(
-            f"Staff member {user.username} added by {self.request.user.username}."
+        
+        # Send email notification to the new user
+        from django.urls import reverse
+        from django.contrib.sites.shortcuts import get_current_site
+        
+        current_site = get_current_site(self.request)
+        login_url = f"https://{current_site.domain}{reverse('accounts:login_view')}"
+        
+        email_context = {
+            'user': user,
+            'password': raw_password,
+            'created_by': self.request.user.get_full_name() or self.request.user.username,
+            'login_url': login_url,
+            'agency': agency
+        }
+        
+        email_sent = send_notification_email(
+            to_email=user.email,
+            subject="Your New ShiftWise Account",
+            template_path="accounts/emails/new_staff_account.txt",
+            context=email_context
         )
+        
+        if email_sent:
+            messages.success(self.request, f"Staff member added successfully and notification email sent to {user.email}.")
+        else:
+            messages.warning(self.request, 
+                f"Staff member added successfully but notification email could not be sent to {user.email}. "
+                f"Please provide them with their username ({user.username}) and temporary password manually."
+            )
+            
+        logger.info(f"Staff member {user.username} added by {self.request.user.username}.")
         return super().form_valid(form)
 
 
@@ -212,11 +251,39 @@ class StaffUpdateView(
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
+        from core.utils import send_notification_email
+        
+        # Capture the changed fields for the notification
+        changed_fields = []
+        if form.has_changed():
+            changed_fields = [form.fields[field].label or field.replace('_', ' ').title() 
+                             for field in form.changed_data]
+        
         user = form.save()
-        # Success message handled by mixin
-        logger.info(
-            f"Staff member {user.username} updated by {self.request.user.username}."
-        )
+        
+        # Send email notification about the update
+        if changed_fields:
+            email_context = {
+                'user': user,
+                'updated_by': self.request.user.get_full_name() or self.request.user.username,
+                'updated_fields': changed_fields
+            }
+            
+            email_sent = send_notification_email(
+                to_email=user.email,
+                subject="Your ShiftWise Account Has Been Updated",
+                template_path="accounts/emails/user_updated.txt",
+                context=email_context
+            )
+            
+            if email_sent:
+                messages.success(self.request, f"Staff member updated successfully and notification email sent to {user.email}.")
+            else:
+                messages.warning(self.request, 
+                    f"Staff member updated successfully but notification email could not be sent to {user.email}."
+                )
+        
+        logger.info(f"Staff member {user.username} updated by {self.request.user.username}.")
         return super().form_valid(form)
 
 
@@ -256,10 +323,36 @@ class StaffDeleteView(
         return super().dispatch(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
+        from core.utils import send_notification_email
+        
         staff_member = self.get_object()
         staff_member.is_active = False
         staff_member.save()
-        self.success_message = f'Staff member "{staff_member.username}" has been deactivated successfully.'
+        
+        # Send email notification about the deactivation
+        email_context = {
+            'user': staff_member,
+            'deactivated_by': request.user.get_full_name() or request.user.username
+        }
+        
+        email_sent = send_notification_email(
+            to_email=staff_member.email,
+            subject="Your ShiftWise Account Has Been Deactivated",
+            template_path="accounts/emails/user_deactivated.txt",
+            context=email_context
+        )
+        
+        if email_sent:
+            messages.success(request, 
+                f'Staff member "{staff_member.username}" has been deactivated successfully '
+                f'and notification email sent to {staff_member.email}.'
+            )
+        else:
+            messages.warning(request, 
+                f'Staff member "{staff_member.username}" has been deactivated successfully '
+                f'but notification email could not be sent to {staff_member.email}.'
+            )
+            
         logger.info(
             f"Staff member {staff_member.username} deactivated by user {request.user.username}."
         )
