@@ -1,0 +1,23 @@
+<!-- /workspace/shiftwise/shifts/templates/shifts/unassign_worker_confirm.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Unassign Worker Confirmation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-warning text-white">
+            <h4>Unassign Worker: {{ assignment.worker.get_full_name }}</h4>
+        </div>
+        <div class="card-body">
+            <p>Are you sure you want to unassign "<strong>{{ assignment.worker.get_full_name }}</strong>" from the shift "{{ shift.name }}" ({{ shift.shift_date|date:"D, d M Y" }})?</p>
+            <form method="post" action="{% url 'shifts:unassign_worker' shift.id assignment.id %}">
+                {% csrf_token %}
+                <a href="{% url 'shifts:shift_detail' shift.id %}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-warning">Unassign Worker</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
