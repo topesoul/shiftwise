@@ -157,8 +157,12 @@ class Shift(TimestampedModel):
         """
         super().clean()
 
-        # Ensure shift date is not in the past unless skipping validation
-        if not skip_date_validation:
+        # Check for prior field-level validation
+        form_validated_date = hasattr(self, '_date_validated') and self._date_validated
+        form_validated_end_date = hasattr(self, '_end_date_validated') and self._end_date_validated
+
+        # Ensure shift date is not in the past unless skipping validation or already validated
+        if not skip_date_validation and not form_validated_date:
             if self.shift_date and self.shift_date < timezone.now().date():
                 raise ValidationError("Shift date cannot be in the past.")
 
@@ -175,8 +179,8 @@ class Shift(TimestampedModel):
         if not self.end_time:
             raise ValidationError("End time must be provided.")
 
-        # Ensure end date is not before shift date
-        if self.end_date and self.shift_date and self.end_date < self.shift_date:
+        # Ensure end date is not before shift date (unless already validated by form)
+        if not form_validated_end_date and self.end_date and self.shift_date and self.end_date < self.shift_date:
             raise ValidationError("End date cannot be before shift date.")
 
         # Combine start and end datetime objects
@@ -221,8 +225,12 @@ class Shift(TimestampedModel):
             logger = logging.getLogger(__name__)
             logger.warning("Shift saved without agency; shift_code generation skipped.")
 
-        skip_date_validation = kwargs.pop("skip_date_validation", False)
-        self.clean(skip_date_validation=skip_date_validation)
+        # Handle validation skipping options
+        skip_validation = kwargs.pop("skip_validation", False)
+        if not skip_validation:
+            skip_date_validation = kwargs.pop("skip_date_validation", False)
+            self.clean(skip_date_validation=skip_date_validation)
+            
         super().save(*args, **kwargs)
 
         # Ensure shift_code is generated if agency was assigned during save
@@ -257,6 +265,7 @@ class Shift(TimestampedModel):
 class ShiftAssignment(TimestampedModel):
     """
     Associates a worker with a specific shift.
+    Workers can only be assigned to shifts within their own agency.
     """
 
     # Assignment Status Choices
@@ -337,10 +346,6 @@ class ShiftAssignment(TimestampedModel):
         """
         super().clean()
 
-        # Skip agency validation for superusers
-        if self.worker.is_superuser:
-            return
-
         # Ensure worker's profile has an agency
         if not hasattr(self.worker, "profile") or not self.worker.profile.agency:
             raise ValidationError(
@@ -348,9 +353,10 @@ class ShiftAssignment(TimestampedModel):
             )
 
         # Validate that the worker's agency matches the shift's agency
+        # This applies to all users, including superusers (business rule)
         if self.shift.agency != self.worker.profile.agency:
             raise ValidationError(
-                "Workers can only be assigned to shifts within their agency."
+                f"Worker {self.worker.get_full_name()} belongs to {self.worker.profile.agency.name} agency, but this shift belongs to {self.shift.agency.name}. Cross-agency assignments are not allowed."
             )
 
         # Prevent assignment if shift is full and status is CONFIRMED
