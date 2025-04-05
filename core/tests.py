@@ -2,35 +2,54 @@
 
 from django.conf import settings
 from django.core import mail
+from django.template.loader import render_to_string
 from django.test import TestCase
 
-from .utils import send_email_notification
+from .utils import send_notification_email
 
 
 class EmailNotificationTests(TestCase):
-    def test_send_email_notification_success(self):
-        send_email_notification(
-            user_email="testuser@example.com",
-            subject="Test Subject",
-            message="This is a test message.",
-        )
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].subject, "Test Subject")
-        self.assertEqual(mail.outbox[0].body, "This is a test message.")
-        self.assertEqual(mail.outbox[0].from_email, settings.DEFAULT_FROM_EMAIL)
-        self.assertIn("testuser@example.com", mail.outbox[0].to)
-
-    def test_send_email_notification_failure(self):
-        # Temporarily set an invalid email backend to simulate failure
-        original_backend = settings.EMAIL_BACKEND
-        settings.EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
-
-        with self.assertRaises(Exception):
-            send_email_notification(
-                user_email="invalid-email",
+    def test_send_notification_email_success(self):
+        context = {
+            "user": {"username": "testuser"},
+            "message": "This is a test message."
+        }
+        
+        template_content = "Hello {{ user.username }}, {{ message }}"
+        
+        # Create a temporary template in memory for testing
+        with self.settings(TEMPLATE_DIRS=('/tmp/',)):
+            with open('/tmp/test_email_template.txt', 'w') as f:
+                f.write(template_content)
+            
+            result = send_notification_email(
+                to_email="testuser@example.com",
                 subject="Test Subject",
-                message="This is a test message.",
+                template_path="test_email_template.txt",
+                context=context
             )
+            
+            self.assertTrue(result)
+            self.assertEqual(len(mail.outbox), 1)
+            self.assertEqual(mail.outbox[0].subject, "Test Subject")
+            self.assertEqual(mail.outbox[0].from_email, settings.DEFAULT_FROM_EMAIL)
+            self.assertIn("testuser@example.com", mail.outbox[0].to)
+            self.assertIn("Hello testuser", mail.outbox[0].body)
+            self.assertIn("This is a test message", mail.outbox[0].body)
 
-        # Restore original email backend
-        settings.EMAIL_BACKEND = original_backend
+    def test_send_notification_email_failure(self):
+        context = {
+            "user": {"username": "testuser"},
+            "message": "This is a test message."
+        }
+        
+        # Test with invalid template path
+        result = send_notification_email(
+            to_email="testuser@example.com",
+            subject="Test Subject",
+            template_path="non_existent_template.txt",
+            context=context
+        )
+        
+        self.assertFalse(result)
+        self.assertEqual(len(mail.outbox), 0)
