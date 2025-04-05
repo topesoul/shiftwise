@@ -1,0 +1,15 @@
+Hello {{ user.first_name }},
+
+Your ShiftWise account information has been updated by {{ updated_by }}.
+
+{% if updated_fields %}
+The following information was updated:
+{% for field in updated_fields %}
+- {{ field }}
+{% endfor %}
+{% endif %}
+
+If you did not expect these changes, please contact your agency administrator immediately.
+
+Best regards,
+ShiftWise Team
