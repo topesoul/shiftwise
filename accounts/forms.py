@@ -1890,9 +1890,19 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop("request", None)
         super(StaffCreationForm, self).__init__(*args, **kwargs)
+        
+        if self.request and self.request.user.is_superuser:
+            self.fields["agency"] = forms.ModelChoiceField(
+                queryset=Agency.objects.all(),
+                required=True,
+                widget=forms.Select(attrs={"class": "form-control", "id": "id_agency"}),
+                help_text="Select an agency for the staff member."
+            )
+            
         self.helper = FormHelper()
         self.helper.form_method = "post"
-        self.helper.layout = Layout(
+        
+        fields_layout = [
             Row(
                 Column("username", css_class="form-group col-md-6 mb-0"),
                 Column("email", css_class="form-group col-md-6 mb-0"),
@@ -1904,7 +1914,13 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
             Row(
                 Column("first_name", css_class="form-group col-md-6 mb-0"),
                 Column("last_name", css_class="form-group col-md-6 mb-0"),
-            ),
+            )
+        ]
+        
+        if self.request and self.request.user.is_superuser:
+            fields_layout.append("agency")
+            
+        fields_layout.extend([
             "travel_radius",
             "address_line1",
             "address_line2",
@@ -1917,7 +1933,9 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
             # Hidden fields
             Field("latitude"),
             Field("longitude"),
-        )
+        ])
+        
+        self.helper.layout = Layout(*fields_layout)
 
     def clean_email(self):
         """Checks for existing users and active invitations"""
@@ -2031,28 +2049,27 @@ class StaffCreationForm(AddressFormMixin, UserCreationForm):
                 user.save()
                 assign_user_to_group(user, "Agency Staff")
 
-                if (
-                    self.request
-                    and hasattr(self.request.user, "profile")
-                    and self.request.user.profile.agency
-                ):
+                agency = None
+                if self.request and self.request.user.is_superuser:
+                    agency = self.cleaned_data.get("agency")
+                elif self.request and hasattr(self.request.user, "profile") and self.request.user.profile.agency:
                     agency = self.request.user.profile.agency
-                    profile, created = Profile.objects.get_or_create(user=user)
+                
+                profile, created = Profile.objects.get_or_create(user=user)
+                profile.travel_radius = self.cleaned_data.get("travel_radius") or 0.0
+                
+                if agency:
                     profile.agency = agency
-                    profile.travel_radius = self.cleaned_data.get("travel_radius") or 0.0
-                    profile.address_line1 = self.cleaned_data.get("address_line1")
-                    profile.address_line2 = self.cleaned_data.get("address_line2")
-                    profile.city = self.cleaned_data.get("city")
-                    profile.county = self.cleaned_data.get("county")
-                    profile.country = self.cleaned_data.get("country") or "UK"
-                    profile.postcode = self.cleaned_data.get("postcode")
-                    profile.latitude = self.cleaned_data.get("latitude")
-                    profile.longitude = self.cleaned_data.get("longitude")
-                    profile.save()
-                else:
-                    profile, created = Profile.objects.get_or_create(user=user)
-                    profile.travel_radius = self.cleaned_data.get("travel_radius") or 0.0
-                    profile.save()
+                    
+                profile.address_line1 = self.cleaned_data.get("address_line1")
+                profile.address_line2 = self.cleaned_data.get("address_line2")
+                profile.city = self.cleaned_data.get("city")
+                profile.county = self.cleaned_data.get("county")
+                profile.country = self.cleaned_data.get("country") or "UK"
+                profile.postcode = self.cleaned_data.get("postcode")
+                profile.latitude = self.cleaned_data.get("latitude")
+                profile.longitude = self.cleaned_data.get("longitude")
+                profile.save()
 
                 logger.info(f"New staff member created: {user.username}")
                 
