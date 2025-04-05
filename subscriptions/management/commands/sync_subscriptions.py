@@ -43,24 +43,24 @@ class Command(BaseCommand):
         customer_id = options.get('customer_id')
         cleanup = options.get('cleanup', False)
         
-        # Initialize counters for reporting
+        # Metrics tracking
         sync_count = 0
         created_count = 0
         updated_count = 0
         deactivated_count = 0
         error_count = 0
         
-        # Track processed subscriptions for cleanup
+        # Track IDs for cleanup operations
         processed_subscriptions = set()
         processed_agencies = set()
         
-        # Build the subscription list query
+        # Configure Stripe query parameters
         subscription_args = {'limit': 100, 'status': 'active'}
         if customer_id:
             subscription_args['customer'] = customer_id
             self.stdout.write(f"Syncing subscriptions for Stripe customer: {customer_id}")
         
-        # Filter agencies if agency_id is provided
+        # Validate agency filter if provided
         if agency_id:
             agencies = Agency.objects.filter(id=agency_id)
             if not agencies.exists():
@@ -68,19 +68,19 @@ class Command(BaseCommand):
                 return
             self.stdout.write(f"Syncing subscriptions for agency: {agencies.first().name}")
         else:
-            agencies = None  # We'll look these up by customer ID later
+            agencies = None
         
-        # Get all subscriptions from Stripe
+        # Fetch active subscriptions from Stripe
         subscriptions = stripe.Subscription.list(**subscription_args)
         self.stdout.write(f"Found {len(subscriptions.data)} subscriptions in Stripe")
         
         for stripe_sub in subscriptions.auto_paging_iter():
             try:
-                # Get the agency based on criteria
+                # Resolve the agency for this subscription
                 if agency_id:
                     agency = agencies.first()
                     if agency.stripe_customer_id != stripe_sub.customer:
-                        continue  # Skip if customer ID doesn't match
+                        continue
                 else:
                     try:
                         agency = Agency.objects.get(stripe_customer_id=stripe_sub.customer)
@@ -88,11 +88,10 @@ class Command(BaseCommand):
                         self.stdout.write(self.style.WARNING(
                             f"No agency found for customer ID {stripe_sub.customer}"
                         ))
-                        continue  # Skip to the next subscription
+                        continue
                 
                 processed_agencies.add(agency.id)
                 
-                # Extract subscription details
                 stripe_sub_id = stripe_sub.id
                 plan_id = stripe_sub["items"]["data"][0]["price"]["id"]
                 
@@ -105,7 +104,7 @@ class Command(BaseCommand):
                     error_count += 1
                     continue
                 
-                # Parse timestamps
+                # Convert UNIX timestamps to datetime
                 current_period_start = datetime.fromtimestamp(
                     stripe_sub.current_period_start, tz=timezone.utc
                 )
@@ -113,11 +112,10 @@ class Command(BaseCommand):
                     stripe_sub.current_period_end, tz=timezone.utc
                 )
                 
-                # Check if subscription status is active
                 is_active = stripe_sub.status == "active"
                 is_expired = stripe_sub.status in ["canceled", "unpaid"]
                 
-                # Find existing subscription by Stripe ID, or create new one
+                # Create or update subscription record
                 try:
                     with transaction.atomic():
                         subscription, created = Subscription.objects.get_or_create(
@@ -139,7 +137,6 @@ class Command(BaseCommand):
                             ))
                             created_count += 1
                         elif force_update:
-                            # Update if force is enabled
                             subscription.agency = agency
                             subscription.plan = plan
                             subscription.is_active = is_active
@@ -172,18 +169,18 @@ class Command(BaseCommand):
                 ))
                 error_count += 1
         
-        # Cleanup phase: handle local subscriptions not in Stripe
+        # Handle subscription pruning
         if cleanup:
             self.stdout.write("Checking for local subscriptions not found in Stripe...")
             
-            # Build query for subscriptions to check
+            # Scope the query based on processed agencies
             query = Subscription.objects.filter(is_active=True)
             if agency_id:
                 query = query.filter(agency_id=agency_id)
             elif processed_agencies:
                 query = query.filter(agency_id__in=processed_agencies)
             
-            # Find subscriptions not in the processed set
+            # Deactivate subscriptions that no longer exist in Stripe
             for local_sub in query:
                 if local_sub.stripe_subscription_id not in processed_subscriptions:
                     self.stdout.write(self.style.WARNING(
@@ -201,7 +198,7 @@ class Command(BaseCommand):
                         ))
                         deactivated_count += 1
         
-        # Final summary
+        # Results summary
         self.stdout.write("\nSynchronization Summary:")
         self.stdout.write(f"Total subscriptions processed: {sync_count}")
         self.stdout.write(f"New subscriptions created: {created_count}")
