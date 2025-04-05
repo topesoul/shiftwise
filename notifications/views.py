@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from django.views.generic import ListView, View
@@ -54,3 +55,21 @@ class MarkNotificationReadView(LoginRequiredMixin, FeatureRequiredMixin, View):
             f"Notification ID {notification.id} marked as read by {request.user.username}."
         )
         return JsonResponse({"success": True})
+
+
+class MarkAllNotificationsReadView(LoginRequiredMixin, FeatureRequiredMixin, View):
+    """
+    Marks all notifications as read for the current user.
+    """
+    
+    required_features = ["notifications_enabled"]
+    
+    @method_decorator(csrf_protect)
+    def post(self, request, *args, **kwargs):
+        count = Notification.objects.filter(user=request.user, read=False).update(read=True)
+        logger.info(f"Marked {count} notifications as read for user {request.user.username}")
+        
+        if count > 0:
+            messages.success(request, f"Marked {count} notifications as read.")
+        
+        return redirect("notifications:notification_list")
