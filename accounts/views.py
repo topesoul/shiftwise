@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomLoginView(FormView):
-    """Login view with MFA support."""
+    """Handles authentication with optional MFA flow redirection."""
     template_name = "accounts/login.html"
     form_class = AuthenticationForm
     success_url = reverse_lazy("accounts:mfa_verify")
@@ -83,14 +83,15 @@ class CustomLoginView(FormView):
                 logger.info(f"User {user.username} logged in without MFA.")
                 return self.redirect_user(user)
         else:
-            messages.error(self.request, "Invalid username or password.")
+            # Non-field error for authentication failure
+            form.add_error(None, "Invalid username or password.")
             logger.warning(f"Failed login attempt for username: {username}")
             return self.form_invalid(form)
 
     def form_invalid(self, form):
-        messages.error(self.request, "Invalid username or password.")
+        # Let Django's built-in form validation handle field errors
         logger.warning(f"Failed login attempt for username: {self.request.POST.get('username')}")
-        return self.render_to_response(self.get_context_data(form=form))
+        return super().form_invalid(form)
 
     def redirect_user(self, user):
         if user.is_superuser:
@@ -111,7 +112,7 @@ class CustomLoginView(FormView):
 
 
 class LogoutView(LoginRequiredMixin, View):
-    """Logout handler."""
+    """Processes user logout and session termination."""
     def get(self, request, *args, **kwargs):
         logger.info(f"User {request.user.username} logged out.")
         logout(request)
@@ -120,7 +121,7 @@ class LogoutView(LoginRequiredMixin, View):
 
 
 class MFAVerifyView(FormView):
-    """2FA verification."""
+    """Validates TOTP codes during two-factor authentication."""
     template_name = "accounts/mfa_verify.html"
     form_class = MFAForm
     success_url = reverse_lazy("home:home")
@@ -146,7 +147,8 @@ class MFAVerifyView(FormView):
             del self.request.session["auth_backend"]
             return self.redirect_user(user)
         else:
-            messages.error(self.request, "Invalid MFA code. Please try again.")
+            # Field-level validation for MFA code
+            form.add_error('totp_code', "Invalid MFA code. Please try again.")
             logger.warning(f"Invalid MFA code entered by user {user.username}.")
             return self.form_invalid(form)
 
@@ -162,7 +164,7 @@ class MFAVerifyView(FormView):
 
 
 class SignUpView(FormView):
-    """User registration."""
+    """Processes new user registration."""
     template_name = "accounts/signup.html"
     form_class = SignUpForm
     success_url = reverse_lazy("accounts:login_view")
@@ -175,12 +177,12 @@ class SignUpView(FormView):
 
 
 class SignupSelectionView(TemplateView):
-    """Signup type selection."""
+    """Displays account type selection page."""
     template_name = "accounts/signup_selection.html"
 
 
 class AgencySignUpView(CreateView):
-    """Agency registration."""
+    """Registers new agencies with agency owner privileges."""
     model = User
     form_class = AgencySignUpForm
     template_name = "accounts/agency_signup.html"
@@ -214,7 +216,7 @@ class AgencySignUpView(CreateView):
 
 
 class ActivateTOTPView(LoginRequiredMixin, View):
-    """TOTP-based MFA activation."""
+    """Sets up time-based MFA and generates QR code for authenticator apps."""
     def get(self, request, *args, **kwargs):
         if request.user.profile.totp_secret:
             messages.info(request, "MFA is already enabled on your account.")
@@ -271,7 +273,7 @@ class ActivateTOTPView(LoginRequiredMixin, View):
 
 
 class DisableTOTPView(LoginRequiredMixin, View):
-    """MFA deactivation."""
+    """Removes time-based MFA from user account."""
     def get(self, request, *args, **kwargs):
         return render(request, "accounts/deactivate_totp.html")
 
@@ -284,7 +286,7 @@ class DisableTOTPView(LoginRequiredMixin, View):
 
 
 class ResendTOTPCodeView(LoginRequiredMixin, View):
-    """Refresh TOTP QR code."""
+    """Regenerates TOTP QR code for authentication setup."""
     def get(self, request, *args, **kwargs):
         user_totp_secret = request.user.profile.totp_secret or pyotp.random_base32()
         totp = pyotp.TOTP(user_totp_secret, interval=settings.MFA_TOTP_PERIOD)
@@ -304,7 +306,7 @@ class ResendTOTPCodeView(LoginRequiredMixin, View):
 
 
 class ProfileView(LoginRequiredMixin, View):
-    """User profile manager."""
+    """Displays and processes user profile updates."""
     template_name = "accounts/profile.html"
 
     def get(self, request, *args, **kwargs):
@@ -365,7 +367,7 @@ class ProfileView(LoginRequiredMixin, View):
 
 
 class AgencyDashboardView(LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionRequiredMixin, View):
-    """Agency dashboard."""
+    """Provides agency management interface for authorized users."""
     def get(self, request, *args, **kwargs):
         user = request.user
         if user.is_superuser:
@@ -379,7 +381,7 @@ class AgencyDashboardView(LoginRequiredMixin, AgencyManagerRequiredMixin, Subscr
 
 
 class StaffDashboardView(LoginRequiredMixin, AgencyStaffRequiredMixin, SubscriptionRequiredMixin, View):
-    """Staff dashboard."""
+    """Displays shift assignments and relevant information for staff members."""
     def get(self, request, *args, **kwargs):
         user = request.user
         today = timezone.now().date()
@@ -396,7 +398,7 @@ class StaffDashboardView(LoginRequiredMixin, AgencyStaffRequiredMixin, Subscript
 
 
 class SuperuserDashboardView(LoginRequiredMixin, SuperuserRequiredMixin, View):
-    """Admin dashboard."""
+    """Provides system-wide administration interface for superusers."""
     def get(self, request, *args, **kwargs):
         agencies = Agency.objects.all()
         users = User.objects.all()
@@ -405,7 +407,7 @@ class SuperuserDashboardView(LoginRequiredMixin, SuperuserRequiredMixin, View):
 
 
 class InviteStaffView(LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionRequiredMixin, FormView):
-    """Staff invitation."""
+    """Manages sending and tracking staff invitations."""
     template_name = "accounts/invite_staff.html"
     form_class = InvitationForm
     success_url = reverse_lazy("shifts:staff_list")
@@ -453,7 +455,7 @@ class InviteStaffView(LoginRequiredMixin, AgencyManagerRequiredMixin, Subscripti
 
 
 class AcceptInvitationView(View):
-    """Staff invitation acceptance."""
+    """Processes staff invitation acceptances and account creation."""
     def get(self, request, token, *args, **kwargs):
         invitation = get_object_or_404(Invitation, token=token, is_active=True)
         if invitation.is_expired():
@@ -518,7 +520,7 @@ def get_address(request):
 
 
 class AgencyListView(LoginRequiredMixin, AgencyOwnerRequiredMixin, SubscriptionRequiredMixin, ListView):
-    """Agency listing."""
+    """Lists agencies with access control based on user role."""
     model = Agency
     template_name = "accounts/manage_agencies.html"
     context_object_name = "agencies"
@@ -531,7 +533,7 @@ class AgencyListView(LoginRequiredMixin, AgencyOwnerRequiredMixin, SubscriptionR
 
 
 class AgencyCreateView(LoginRequiredMixin, SuperuserRequiredMixin, SubscriptionRequiredMixin, SuccessMessageMixin, CreateView):
-    """Agency creation."""
+    """Handles agency creation for superusers."""
     model = Agency
     form_class = AgencyForm
     template_name = "accounts/agency_form.html"
@@ -549,7 +551,7 @@ class AgencyCreateView(LoginRequiredMixin, SuperuserRequiredMixin, SubscriptionR
 
 
 class AgencyUpdateView(LoginRequiredMixin, AgencyOwnerRequiredMixin, SubscriptionRequiredMixin, SuccessMessageMixin, UpdateView):
-    """Agency editing."""
+    """Manages agency detail modifications."""
     model = Agency
     form_class = AgencyForm
     template_name = "accounts/agency_form.html"
@@ -569,7 +571,7 @@ class AgencyUpdateView(LoginRequiredMixin, AgencyOwnerRequiredMixin, Subscriptio
 
 
 class AgencyDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, SubscriptionRequiredMixin, SuccessMessageMixin, DeleteView):
-    """Agency deletion."""
+    """Removes agencies from the system (superusers only)."""
     model = Agency
     template_name = "accounts/agency_confirm_delete.html"
     success_url = reverse_lazy("accounts:manage_agencies")
@@ -583,7 +585,7 @@ class AgencyDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, SubscriptionR
 
 
 class UserListView(LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionRequiredMixin, ListView):
-    """User listing."""
+    """Displays users with appropriate access controls."""
     model = User
     template_name = "accounts/manage_users.html"
     context_object_name = "users"
@@ -596,7 +598,7 @@ class UserListView(LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionR
 
 
 class UserCreateView(LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionRequiredMixin, SuccessMessageMixin, CreateView):
-    """User creation."""
+    """Provides user creation interface for managers."""
     model = User
     form_class = UserForm
     template_name = "accounts/user_form.html"
@@ -617,7 +619,7 @@ class UserCreateView(LoginRequiredMixin, AgencyManagerRequiredMixin, Subscriptio
 
 
 class UserUpdateView(LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionRequiredMixin, SuccessMessageMixin, UpdateView):
-    """User editing."""
+    """Manages user profile modifications by managers."""
     model = User
     form_class = UserUpdateForm
     template_name = "accounts/user_form.html"
@@ -641,7 +643,7 @@ class UserUpdateView(LoginRequiredMixin, AgencyManagerRequiredMixin, Subscriptio
 
 
 class UserDeleteView(LoginRequiredMixin, AgencyManagerRequiredMixin, SubscriptionRequiredMixin, SuccessMessageMixin, DeleteView):
-    """User deactivation."""
+    """Handles user deactivation rather than deletion."""
     model = User
     template_name = "accounts/user_confirm_delete.html"
     success_url = reverse_lazy("accounts:manage_users")
