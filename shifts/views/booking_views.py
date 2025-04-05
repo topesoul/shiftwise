@@ -5,7 +5,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import View
 
@@ -124,6 +124,28 @@ class ShiftUnbookView(
 
     required_features = ["shift_management"]
 
+    def get(self, request, shift_id, *args, **kwargs):
+        user = request.user
+        shift = get_object_or_404(Shift, id=shift_id, is_active=True)
+        
+        # Check permissions: Only agency staff can unbook shifts
+        if not user.groups.filter(name="Agency Staff").exists():
+            messages.error(request, "Only agency staff can unbook shifts.")
+            return redirect("shifts:shift_list")
+            
+        # Ensure the shift belongs to the user's agency
+        if shift.agency != user.profile.agency:
+            messages.error(request, "You cannot unbook shifts outside your agency.")
+            return redirect("shifts:shift_list")
+            
+        # Retrieve the ShiftAssignment
+        assignment = ShiftAssignment.objects.filter(shift=shift, worker=user).first()
+        if not assignment:
+            messages.error(request, "You have not booked this shift.")
+            return redirect("shifts:shift_detail", pk=shift_id)
+            
+        return render(request, "shifts/unbook_shift_confirm.html", {"shift": shift})
+        
     def post(self, request, shift_id, *args, **kwargs):
         user = request.user
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
@@ -163,12 +185,6 @@ class ShiftUnbookView(
                 f"Error unbooking shift {shift.id} for user {user.username}: {e}"
             )
             return redirect("shifts:shift_detail", pk=shift_id)
-
-    def get(self, request, shift_id, *args, **kwargs):
-        """
-        Redirect GET requests to the shift detail page.
-        """
-        return redirect("shifts:shift_detail", pk=shift_id)
 
 
 class AjaxShiftBookView(
