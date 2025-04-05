@@ -1,4 +1,4 @@
-<!-- Base template for ShiftWise application -->
+<!-- /workspaces/shiftwise/templates/base.html -->
 
 {% load crispy_forms_tags %}
 {% load static %}
@@ -80,31 +80,171 @@
         <p>Developed by <a href="https://linkedin.com/in/topeakingbala" target="_blank" rel="noopener noreferrer">
             Temitope Akingbala</a></p>
     </footer>
-
-    <!-- Core JS dependencies - loaded first without defer -->
+    <!-- Core JS dependencies -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Declare callback before Google Maps API loads -->
+
+    <!-- Address Autocomplete for UK addresses -->
     <script>
-        window.googleMapsCallback = function() {
-            console.log("Google Maps API loaded");
-        };
+    (function() {
+        // Prevent re-initialization
+        window.googleMapsInitialized = false;
+
+        // Initializes Places Autocomplete when Google Maps is loaded
+        function initializeAutocomplete() {
+            if (!window.google || !window.google.maps || !window.google.maps.places) return;
+            if (window.googleMapsInitialized) return;
+            window.googleMapsInitialized = true;
+
+            function setupAutocomplete(field) {
+                if (field._hasAutocomplete) return;
+                try {
+                    const autocomplete = new google.maps.places.Autocomplete(field, {
+                        types: ['address'],
+                        componentRestrictions: { country: ['gb'] },
+                        fields: ['address_components', 'geometry', 'formatted_address']
+                    });
+                    field._hasAutocomplete = true;
+
+                    autocomplete.addListener('place_changed', function() {
+                        const place = autocomplete.getPlace();
+                        if (!place.geometry) return;
+                        const form = field.closest('form');
+                        if (!form) return;
+
+                        const fields = {
+                            address1: form.querySelector('#id_address_line1'),
+                            address2: form.querySelector('#id_address_line2'),
+                            city: form.querySelector('#id_city'),
+                            county: form.querySelector('#id_county'),
+                            postcode: form.querySelector('#id_postcode'),
+                            country: form.querySelector('#id_country'),
+                            latitude: form.querySelector('#id_latitude'),
+                            longitude: form.querySelector('#id_longitude')
+                        };
+
+                        // Clear fields before populating
+                        if (fields.address2) fields.address2.value = '';
+                        if (fields.city) fields.city.value = '';
+                        if (fields.county) fields.county.value = '';
+                        if (fields.postcode) fields.postcode.value = '';
+                        if (fields.country) fields.country.value = 'United Kingdom';
+
+                        let streetNumber = '';
+                        let route = '';
+                        let subpremise = '';
+
+                        place.address_components.forEach(function(component) {
+                            const types = component.types;
+                            if (types.includes('street_number')) {
+                                streetNumber = component.long_name;
+                            } else if (types.includes('route')) {
+                                route = component.long_name;
+                            } else if (types.includes('subpremise')) {
+                                subpremise = component.long_name;
+                            } else if ((types.includes('locality') || types.includes('postal_town')) && fields.city && !fields.city.value) {
+                                fields.city.value = component.long_name;
+                            } else if (types.includes('administrative_area_level_2') && fields.county) {
+                                fields.county.value = component.long_name;
+                            } else if (types.includes('postal_code') && fields.postcode) {
+                                fields.postcode.value = component.long_name;
+                            } else if (types.includes('country') && fields.country) {
+                                fields.country.value = component.long_name;
+                            }
+                        });
+
+                        if (fields.address1) {
+                            if (subpremise && streetNumber && route) {
+                                fields.address1.value = subpremise + ', ' + streetNumber + ' ' + route;
+                            } else if (streetNumber && route) {
+                                fields.address1.value = streetNumber + ' ' + route;
+                            } else if (route) {
+                                fields.address1.value = route;
+                            } else if (place.formatted_address) {
+                                const formattedParts = place.formatted_address.split(',');
+                                if (formattedParts.length > 0) {
+                                    const firstPart = formattedParts[0].trim();
+                                    if (firstPart.length < 10 && formattedParts.length > 1) {
+                                        fields.address1.value = firstPart + ', ' + formattedParts[1].trim();
+                                    } else {
+                                        fields.address1.value = firstPart;
+                                    }
+                                }
+                            }
+                            // Handle flat addresses without subpremise
+                            if (!subpremise && fields.address1.value && !fields.address1.value.match(/flat|apartment|unit|suite/i)
+                                && place.formatted_address && place.formatted_address.match(/flat|apartment|unit|suite/i)) {
+                                const formattedParts = place.formatted_address.split(',');
+                                const flatInfo = formattedParts[0].trim();
+                                if (flatInfo.match(/flat|apartment|unit|suite/i)) {
+                                    fields.address1.value = flatInfo;
+                                    if (streetNumber && route && !fields.address1.value.includes(route)) {
+                                        fields.address1.value += ', ' + streetNumber + ' ' + route;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (fields.latitude && place.geometry && place.geometry.location) {
+                            fields.latitude.value = place.geometry.location.lat();
+                        }
+                        if (fields.longitude && place.geometry && place.geometry.location) {
+                            fields.longitude.value = place.geometry.location.lng();
+                        }
+
+                        // Trigger events to update any dependent UI logic
+                        Object.keys(fields).forEach(function(key) {
+                            if (fields[key]) {
+                                const event = new Event('change', { bubbles: true });
+                                fields[key].dispatchEvent(event);
+                            }
+                        });
+                    });
+                } catch (error) {
+                    console.error("Error setting up autocomplete:", error);
+                }
+            }
+
+            document.querySelectorAll('.address-autocomplete').forEach(setupAutocomplete);
+
+            if (typeof jQuery !== 'undefined') {
+                jQuery(document).on('shown.bs.modal', function(e) {
+                    const modal = e.target;
+                    const addressFields = modal.querySelectorAll('.address-autocomplete');
+                    if (addressFields.length > 0) {
+                        addressFields.forEach(setupAutocomplete);
+                    }
+                });
+            }
+
+            window.setupAutocomplete = setupAutocomplete;
+        }
+
+        // Google Maps API callback
+        function googleMapsCallback() {
+            initializeAutocomplete();
+            window.initializeAutocomplete = initializeAutocomplete;
+        }
+
+        window.googleMapsCallback = googleMapsCallback;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.google && window.google.maps && window.google.maps.places) {
+                initializeAutocomplete();
+            }
+        });
+    })();
     </script>
-    
+
     <!-- Third-party libraries -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    
+
     <!-- Google Maps API with Places library -->
     <script src="{% url 'core:google_maps_proxy' %}?libraries=places&callback=googleMapsCallback"></script>
-    
+
     <!-- Custom Scripts -->
-    <script src="{% static 'js/address_autocomplete.js' %}" defer></script>
     <script src="{% static 'js/dark_mode_toggle.js' %}" defer></script>
     <script src="{% static 'js/messages.js' %}" defer></script>
     <script src="{% static 'js/form_validation.js' %}" defer></script>
-    
-    {% block extra_js %}{% endblock %}
-</body>
 
-</html>
+    {% block extra_js %}{% endblock %}
