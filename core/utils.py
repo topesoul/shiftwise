@@ -1,9 +1,11 @@
 # /workspace/shiftwise/core/utils.py
 
 import logging
+import os
 import random
 import secrets
 import string
+import uuid
 from django.http import JsonResponse
 from django.contrib.auth.models import Group
 from django.core.mail import send_mail
@@ -121,3 +123,82 @@ def send_notification_email(to_email, subject, template_path, context):
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {e}")
         return False
+
+
+def create_unique_filename(instance, filename):
+    """
+    Generate a unique filename for uploaded files.
+    
+    Args:
+        instance: Model instance the file is being attached to
+        filename: Original filename
+        
+    Returns:
+        str: Unique filepath with preserved extension
+    """
+    ext = filename.split('.')[-1]
+    unique_id = uuid.uuid4().hex
+    
+    # Determine directory based on model
+    if hasattr(instance, 'user'):
+        directory = f"profiles/{instance.user.id}"
+    else:
+        directory = "uploads"
+        
+    return os.path.join(directory, f"{unique_id}.{ext}")
+
+
+def send_notification(user_id, message, subject=None, url=None, icon="fas fa-info-circle"):
+    """
+    Creates an in-app notification for a user.
+    
+    Args:
+        user_id: ID of the user to notify
+        message: Notification message text
+        subject: Optional subject line (not stored in notification model)
+        url: Optional URL to redirect to when clicking the notification
+        icon: Font Awesome icon class for the notification
+        
+    Returns:
+        Notification: The created notification object or None if failed
+    """
+    try:
+        from notifications.models import Notification
+        from django.contrib.auth import get_user_model
+        
+        User = get_user_model()
+        
+        # Create the notification
+        notification = Notification.objects.create(
+            user_id=user_id,
+            message=message,
+            icon=icon,
+            url=url,
+            read=False
+        )
+        
+        logger.info(f"Notification created for user ID {user_id}: {message}")
+        
+        # If a subject is provided, also send an email notification
+        if subject:
+            user = User.objects.get(id=user_id)
+            send_notification_email(
+                to_email=user.email,
+                subject=subject,
+                template_path="notifications/email/notification_email.txt",
+                context={
+                    "user": user,
+                    "message": message,
+                    "site_url": settings.SITE_URL if hasattr(settings, "SITE_URL") else "",
+                    "url": url
+                }
+            )
+        
+        return notification
+    except Exception as e:
+        logger.error(f"Failed to create notification for user ID {user_id}: {e}")
+        return None
+
+
+# Alias for backward compatibility
+send_email_notification = send_notification_email
