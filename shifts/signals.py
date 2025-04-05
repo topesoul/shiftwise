@@ -7,7 +7,7 @@ from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.urls import reverse
 
-from core.utils import send_email_notification, send_notification
+from core.utils import send_notification
 
 from .models import Shift, ShiftAssignment
 
