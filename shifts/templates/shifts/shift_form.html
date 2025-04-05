@@ -13,7 +13,6 @@
     <h2 class="mb-4">{{ form_title }}</h2>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        {{ form.non_field_errors }}
         {{ form|crispy }}
         <button type="submit" class="btn btn-primary">Save Shift</button>
         <a href="{% url 'shifts:shift_list' %}" class="btn btn-secondary">Cancel</a>
