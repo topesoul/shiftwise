@@ -9,6 +9,21 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
+def handle_permission_error(request, message, redirect_url="home:home"):
+    """
+    Centralized error handler for permission-based redirects.
+    
+    Args:
+        request: The request object
+        message: Error message to display
+        redirect_url: URL to redirect to
+    
+    Returns:
+        HttpResponseRedirect
+    """
+    messages.error(request, message)
+    return redirect(redirect_url)
+
 
 class SuperuserRequiredMixin(UserPassesTestMixin):
     """Mixin to ensure that the user is a superuser."""
@@ -17,8 +32,12 @@ class SuperuserRequiredMixin(UserPassesTestMixin):
         return self.request.user.is_superuser
 
     def handle_no_permission(self):
-        messages.error(self.request, "You do not have permission to access this page.")
-        return redirect("accounts:login_view")
+        logger.warning(f"User {self.request.user.username} attempted to access a superuser-only page.")
+        return handle_permission_error(
+            self.request, 
+            "You do not have permission to access this page.", 
+            "accounts:login_view"
+        )
 
 
 class AgencyOwnerRequiredMixin(UserPassesTestMixin):
@@ -31,11 +50,13 @@ class AgencyOwnerRequiredMixin(UserPassesTestMixin):
         return user.is_superuser or user.groups.filter(name="Agency Owners").exists()
 
     def handle_no_permission(self):
-        messages.error(self.request, "You do not have permission to access this page.")
         logger.warning(
             f"User {self.request.user.username} attempted to access an owner-only page without permissions."
         )
-        return redirect("home:home")
+        return handle_permission_error(
+            self.request, 
+            "You do not have permission to access this page."
+        )
 
 
 class AgencyManagerRequiredMixin(UserPassesTestMixin):
@@ -52,11 +73,13 @@ class AgencyManagerRequiredMixin(UserPassesTestMixin):
         )
 
     def handle_no_permission(self):
-        messages.error(self.request, "You do not have permission to access this page.")
         logger.warning(
             f"User {self.request.user.username} attempted to access a manager-only page without permissions."
         )
-        return redirect("home:home")
+        return handle_permission_error(
+            self.request, 
+            "You do not have permission to access this page."
+        )
 
 
 class AgencyStaffRequiredMixin(UserPassesTestMixin):
@@ -74,13 +97,13 @@ class AgencyStaffRequiredMixin(UserPassesTestMixin):
         )
 
     def handle_no_permission(self):
-        messages.error(
-            self.request, "You must be an Agency Staff member to access this page."
-        )
         logger.warning(
             f"User {self.request.user.username} attempted to access a staff-only page without permissions."
         )
-        return redirect("home:home")
+        return handle_permission_error(
+            self.request, 
+            "You must be an Agency Staff member to access this page."
+        )
 
 
 class SubscriptionRequiredMixin(UserPassesTestMixin):
@@ -123,15 +146,19 @@ class SubscriptionRequiredMixin(UserPassesTestMixin):
         user = self.request.user
         # Clear existing messages
         messages.get_messages(self.request)
+        
         if not user.is_authenticated:
-            messages.error(self.request, "You must be logged in to access this page.")
-            return redirect("accounts:login_view")
-        else:
-            messages.error(
-                self.request,
-                "Your agency does not have the necessary subscription to access this page.",
+            return handle_permission_error(
+                self.request, 
+                "You must be logged in to access this page.", 
+                "accounts:login_view"
             )
-            return redirect("subscriptions:subscription_home")
+        else:
+            return handle_permission_error(
+                self.request, 
+                "Your agency does not have the necessary subscription to access this page.", 
+                "subscriptions:subscription_home"
+            )
 
 
 class FeatureRequiredMixin(UserPassesTestMixin):
@@ -162,11 +189,14 @@ class FeatureRequiredMixin(UserPassesTestMixin):
     def handle_no_permission(self):
         user = self.request.user
         if not user.is_authenticated:
-            messages.error(self.request, "You must be logged in to access this page.")
-            return redirect("accounts:login_view")
-        else:
-            messages.error(
-                self.request,
-                "You do not have the necessary subscription features to access this page.",
+            return handle_permission_error(
+                self.request, 
+                "You must be logged in to access this page.", 
+                "accounts:login_view"
             )
-            return redirect("subscriptions:subscription_home")
+        else:
+            return handle_permission_error(
+                self.request, 
+                "You do not have the necessary subscription features to access this page.", 
+                "subscriptions:subscription_home"
+            )
