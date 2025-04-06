@@ -1,8 +1,12 @@
+/* jshint esversion: 11, browser: true, -W098 */
+/* global labels, shiftData, avgWellness, avgRating, Chart */
 // /workspace/shiftwise/static/js/report_dashboard.js
 
 document.addEventListener('DOMContentLoaded', function () {
     // Shift Chart
     const shiftsCtx = document.getElementById('shiftsChart').getContext('2d');
+    // Initialize shifts chart
+    // Chart instance is stored for potential future use (e.g., dynamic updates)
     const shiftsChart = new Chart(shiftsCtx, {
         type: 'bar',
         data: {
@@ -80,6 +84,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Performance Chart
     const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+    // Initialize performance chart
+    // Chart instance is stored for potential future use (e.g., dynamic updates)
     const performanceChart = new Chart(performanceCtx, {
         type: 'doughnut',
         data: {
