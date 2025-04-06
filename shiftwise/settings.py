@@ -250,23 +250,23 @@ ACCOUNT_RATE_LIMITS = {
 # Email
 # -----------------------------------------------------------------------------
 
-# SendGrid API key
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 
-# Configure email backend based on environment
+# Configure email delivery based on environment
 if DEBUG:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 else:
+    # Prioritize SendGrid over standard SMTP when available
     if SENDGRID_API_KEY:
         EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
         SENDGRID_SANDBOX_MODE_IN_DEBUG = False
-        # SendGrid tracking configuration
+        # Disable tracking features
         SENDGRID_TRACK_CLICKS_PLAIN = False
         SENDGRID_TRACK_CLICKS_HTML = False
         SENDGRID_ECHO_TO_STDOUT = True
     else:
         EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-        
+
 # SMTP configuration
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.sendgrid.net")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
