@@ -2,11 +2,7 @@
 
 /**
  * Agency Signup Module
- * Handles form validation and field synchronization
  */
-
-// Track warnings to avoid duplicates
-const shownWarnings = new Set();
 
 document.addEventListener('DOMContentLoaded', function() {
     // Cache DOM elements
@@ -29,13 +25,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Form submission validation
     setupFormSubmission();
     
-    /**
-     * Sets up email synchronization between personal and agency emails
-     */
     function setupEmailSynchronization() {
         if (!personalEmail || !agencyEmail) return;
         
-        // Legacy email auto-population 
         personalEmail.addEventListener('change', function() {
             if (!agencyEmail.value) {
                 agencyEmail.value = personalEmail.value;
@@ -53,7 +45,6 @@ document.addEventListener('DOMContentLoaded', function() {
             validateField(agencyEmail);
         });
         
-        // Append toggle link after help text
         const helpText = agencyEmail.closest('.form-group').querySelector('small.text-muted');
         if (helpText) {
             helpText.parentNode.insertBefore(toggleLink, helpText.nextSibling);
@@ -68,15 +59,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 agencyEmailField.style.display = 'none';
             }
             
-            // Handle checkbox state changes
             emailCheckbox.addEventListener('change', function() {
                 if (this.checked) {
-                    // Store previous value and sync emails
                     agencyEmail.dataset.previousValue = agencyEmail.value;
                     agencyEmail.value = personalEmail.value;
                     agencyEmailField.style.display = 'none';
                 } else {
-                    // Restore visibility and previous value
                     agencyEmailField.style.display = '';
                     if (agencyEmail.dataset.previousValue) {
                         agencyEmail.value = agencyEmail.dataset.previousValue;
@@ -84,7 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
             
-            // Keep emails in sync when checkbox is checked
             personalEmail.addEventListener('input', function() {
                 if (emailCheckbox.checked) {
                     agencyEmail.value = this.value;
@@ -93,25 +80,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    /**
-     * Sets up field validation events
-     */
     function setupValidation() {
-        // UK postcode formatting and validation
         if (postcodeField) {
             postcodeField.addEventListener('blur', function() {
                 formatAndValidatePostcode(this);
             });
         }
         
-        // UK phone validation
         if (phoneField) {
             phoneField.addEventListener('blur', function() {
                 validateUKPhoneNumber(this);
             });
         }
         
-        // Required field validation
         form.querySelectorAll('[required]').forEach(field => {
             field.addEventListener('blur', function() {
                 validateRequired(this);
@@ -119,15 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    /**
-     * Formats and validates UK postcode
-     * @param {HTMLElement} field - The postcode input field
-     * @returns {boolean} - Whether the field is valid
-     */
     function formatAndValidatePostcode(field) {
         let value = field.value.trim().toUpperCase();
         
-        // Format postcode with proper spacing
         if (value.length > 0 && !value.includes(' ')) {
             const parts = value.match(/^([A-Z]{1,2}\d[A-Z\d]?)(\d[A-Z]{2})$/);
             if (parts && parts.length === 3) {
@@ -139,11 +114,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return validateUKPostcode(field);
     }
     
-    /**
-     * Validates UK postcode format
-     * @param {HTMLElement} field - The postcode input field
-     * @returns {boolean} - Whether the field is valid
-     */
     function validateUKPostcode(field) {
         const value = field.value.trim();
         if (value) {
@@ -161,11 +131,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
     
-    /**
-     * Validates UK phone number format
-     * @param {HTMLElement} field - The phone input field
-     * @returns {boolean} - Whether the field is valid
-     */
     function validateUKPhoneNumber(field) {
         const value = field.value.trim();
         if (value) {
@@ -184,16 +149,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
     
-    /**
-     * Validates required field
-     * @param {HTMLElement} field - The required input field
-     * @returns {boolean} - Whether the field is valid
-     */
     function validateRequired(field) {
         if (!field.value.trim()) {
             const fieldName = field.getAttribute('placeholder') || 
                              field.getAttribute('name') || 
-                             field.closest('.form-group').querySelector('label')?.textContent || 
+                             (field.closest('.form-group').querySelector('label') ? field.closest('.form-group').querySelector('label').textContent : '') || 
                              'This field';
                              
             showError(field, `${fieldName} is required.`);
@@ -204,11 +164,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    /**
-     * Validates field based on its type
-     * @param {HTMLElement} field - The field to validate
-     * @returns {boolean} - Whether the field is valid
-     */
     function validateField(field) {
         if (field.id === 'id_postcode') {
             return validateUKPostcode(field);
@@ -220,15 +175,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
     
-    /**
-     * Sets up form submission validation
-     */
     function setupFormSubmission() {
         form.addEventListener('submit', function(e) {
             let isValid = true;
             let firstInvalidField = null;
             
-            // Check all required fields
             form.querySelectorAll('[required]').forEach(field => {
                 const fieldValid = validateField(field);
                 
@@ -239,7 +190,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 isValid = isValid && fieldValid;
             });
             
-            // Validate optional fields with content
             if (postcodeField && postcodeField.value) {
                 const postcodeValid = validateUKPostcode(postcodeField);
                 if (!postcodeValid && !firstInvalidField) {
@@ -256,7 +206,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 isValid = isValid && phoneValid;
             }
             
-            // Prevent submission if validation fails
             if (!isValid) {
                 e.preventDefault();
                 if (firstInvalidField) {
@@ -267,11 +216,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    /**
-     * Shows error message for a field
-     * @param {HTMLElement} field - The field with error
-     * @param {string} message - Error message to display
-     */
     function showError(field, message) {
         let feedbackDiv = field.nextElementSibling;
         if (!feedbackDiv || !feedbackDiv.classList.contains('invalid-feedback')) {
@@ -286,10 +230,6 @@ document.addEventListener('DOMContentLoaded', function() {
         feedbackDiv.style.display = 'block';
     }
     
-    /**
-     * Clears error for a field
-     * @param {HTMLElement} field - The field to clear
-     */
     function clearError(field) {
         field.classList.remove('is-invalid');
         field.classList.add('is-valid');
@@ -297,24 +237,6 @@ document.addEventListener('DOMContentLoaded', function() {
         let feedbackDiv = field.nextElementSibling;
         if (feedbackDiv && feedbackDiv.classList.contains('invalid-feedback')) {
             feedbackDiv.style.display = 'none';
-        }
-    }
-    
-    /**
-     * Adds domain warning to the form
-     * @param {string} message - The warning message
-     */
-    function addDomainWarning(message) {
-        if (shownWarnings.has(message)) return;
-        shownWarnings.add(message);
-        
-        const warningDiv = document.createElement('div');
-        warningDiv.className = 'alert alert-warning';
-        warningDiv.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i>${message}`;
-        
-        const firstField = form.querySelector('.form-group');
-        if (firstField) {
-            form.insertBefore(warningDiv, firstField);
         }
     }
 });
