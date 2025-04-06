@@ -1,0 +1,39 @@
+<!-- /workspaces/shiftwise/subscriptions/templates/subscriptions/subscription_confirm_cancel.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+{% load custom_tags %}
+
+{% block title %}Cancel Subscription | ShiftWise{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h4>Cancel Subscription</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle mr-2"></i> 
+            <strong>Important:</strong> Canceling your subscription will remove access to premium features at the end of your current billing period.
+        </div>
+        
+        <h5>Subscription Details</h5>
+        <p><strong>Plan:</strong> {{ current_plan.name }} ({{ current_plan.get_billing_cycle_display }})</p>
+        <p><strong>Price:</strong> £{{ current_plan.price|floatformat:2 }} / {{ current_plan.billing_cycle }}</p>
+        <p><strong>Current Period Ends:</strong> {{ subscription.current_period_end|date:"F j, Y" }}</p>
+        
+        <p>Are you sure you want to cancel your subscription?</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <a href="{% url 'subscriptions:manage_subscription' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> No, Keep My Subscription
+            </a>
+            <button type="submit" class="btn btn-danger">
+                <i class="fas fa-check"></i> Yes, Cancel My Subscription
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
