@@ -1023,6 +1023,44 @@ class DowngradeSubscriptionView(SubscriptionChangeView):
 
 
 class CancelSubscriptionView(LoginRequiredMixin, AgencyOwnerRequiredMixin, View):
+    template_name = "subscriptions/subscription_confirm_cancel.html"
+    
+    def get(self, request, *args, **kwargs):
+        """Display confirmation page before cancelling subscription"""
+        user = request.user
+        context = {}
+
+        try:
+            profile = user.profile
+            agency = profile.agency
+            
+            if not agency:
+                messages.error(request, "Your agency information is missing. Please contact support.")
+                logger.error(f"Agency is None for user: {user.username}")
+                return redirect("subscriptions:subscription_home")
+            
+            try:
+                subscription = agency.subscription
+                if not subscription.is_active:
+                    messages.warning(request, "You don't have an active subscription to cancel.")
+                    return redirect("subscriptions:subscription_home")
+                
+                # Get current plan details
+                current_plan = subscription.plan
+                context['subscription'] = subscription
+                context['current_plan'] = current_plan
+                
+            except Subscription.DoesNotExist:
+                messages.warning(request, "You don't have an active subscription to cancel.")
+                return redirect("subscriptions:subscription_home")
+                
+        except Profile.DoesNotExist:
+            messages.error(request, "User profile does not exist. Please contact support.")
+            logger.error(f"Profile does not exist for user: {user.username}")
+            return redirect("subscriptions:subscription_home")
+            
+        return render(request, self.template_name, context)
+    
     def post(self, request, *args, **kwargs):
         user = request.user
 
