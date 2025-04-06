@@ -1,3 +1,4 @@
+/* global SignaturePad */
 // /workspace/shiftwise/static/js/shift_complete_modal.js
 
 $(document).ready(function () {
