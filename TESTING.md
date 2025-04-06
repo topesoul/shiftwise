@@ -596,6 +596,14 @@ The inline implementation in base.html solved these issues by:
 
 While this approach deviates from ideal separation of concerns, it was the only implementation that reliably solved all identified issues after extensive testing.
 
+## Known Open Bugs
+
+| Bug Description | Error Details | Impact | Status |
+|-----------------|--------------|--------|--------|
+| Message port closed error in console | "Unchecked runtime.lastError: The message port closed before a response was received." | No visible impact on functionality, appears only in browser console | Open |
+
+The "message port closed" error appears in the browser's developer console but does not affect the application's functionality. This is typically related to Chrome extensions or browser features attempting to communicate with a process that has already completed or been terminated. Though not affecting user experience, it will be investigated in a future iteration.
+
 ## Performance Testing
 
 ### Django Debug Toolbar Analysis
