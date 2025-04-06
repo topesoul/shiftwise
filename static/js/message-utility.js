@@ -132,11 +132,89 @@ window.messageUtil = new MessageUtility();
 
 // Expose legacy API.
 window.displayMessage = (message, type) => window.messageUtil.displayMessage(message, type);
+/**
+ * CSRF token management for securing XHR/fetch requests
+ */
+class CSRFUtility {
+    constructor() {
+        this.initCSRF();
+    }
+
+    /**
+     * Retrieves CSRF token from cookie, form input, or meta tag
+     */
+    getCSRFToken() {
+        const token = this.getCookie('csrftoken');
+        if (token) return token;
+        
+        const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (csrfInput) return csrfInput.value;
+        
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        if (metaTag) return metaTag.getAttribute('content');
+        
+        return null;
+    }
+    
+    /**
+     * Parses document cookies to find specified value
+     */
+    getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    /**
+     * Injects CSRF tokens into non-safe HTTP methods
+     */
+    initCSRF() {
+        // Add CSRF headers to jQuery AJAX requests
+        if (window.jQuery) {
+            jQuery(document).ajaxSend((e, xhr, settings) => {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)) {
+                    const token = this.getCSRFToken();
+                    if (token) xhr.setRequestHeader("X-CSRFToken", token);
+                }
+            });
+        }
+        
+        // Intercept fetch API to add CSRF headers
+        const originalFetch = window.fetch;
+        window.fetch = (url, options = {}) => {
+            if (options.method && 
+                !/^(GET|HEAD|OPTIONS|TRACE)$/i.test(options.method) && 
+                (url.toString().startsWith(window.location.origin) || url.toString().startsWith('/'))) {
+                
+                options.headers = options.headers || {};
+                
+                if (!options.headers['X-CSRFToken'] && !options.headers['x-csrftoken']) {
+                    const token = this.getCSRFToken();
+                    if (token) options.headers['X-CSRFToken'] = token;
+                }
+            }
+            return originalFetch(url, options);
+        };
+    }
+}
 
 // Prevent duplicate initialization.
 if (!window.messageUtilityInitialized) {
     document.addEventListener('DOMContentLoaded', function() {
         try {
+            // Initialize CSRF protection
+            window.csrfUtil = new CSRFUtility();
+            
+            // Handle duplicate alerts
             const seenMessages = new Set();
             const alerts = document.querySelectorAll('.alert');
 
