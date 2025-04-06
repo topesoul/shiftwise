@@ -5,8 +5,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
         const alerts = document.querySelectorAll('.alert');
         alerts.forEach(function(alert) {
-            if (bootstrap && bootstrap.Alert) {
-                const bsAlert = new bootstrap.Alert(alert);
+            if (window.bootstrap && window.bootstrap.Alert) {
+                const bsAlert = new window.bootstrap.Alert(alert);
                 bsAlert.close();
             } else {
                 // Fallback if bootstrap JavaScript isn't loaded
@@ -57,8 +57,8 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
             const newAlert = messageContainer.querySelector('.alert:last-child');
             if (newAlert) {
-                if (bootstrap && bootstrap.Alert) {
-                    const bsAlert = new bootstrap.Alert(newAlert);
+                if (window.bootstrap && window.bootstrap.Alert) {
+                    const bsAlert = new window.bootstrap.Alert(newAlert);
                     bsAlert.close();
                 } else {
                     // Fallback if bootstrap JavaScript isn't loaded
