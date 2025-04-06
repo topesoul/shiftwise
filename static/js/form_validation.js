@@ -91,7 +91,7 @@ function initFormValidation() {
             if (!isValid) {
                 e.preventDefault();
                 const modal = form.closest('.modal');
-                if (modal) {
+                if (modal && typeof $ !== 'undefined') {
                     $(modal).modal('show');
                 }
             }
