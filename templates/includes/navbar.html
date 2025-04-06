@@ -4,12 +4,12 @@
 {% load custom_filters %}
 {% load custom_tags %}
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-custom-navbar shadow-sm" role="navigation"
+<nav class="navbar navbar-expand-lg navbar-dark bg-custom-navbar shadow-sm" 
   aria-label="Main Navigation">
   <div class="container">
     <!-- Brand -->
     <a class="navbar-brand d-flex align-items-center" href="{% url 'home:home' %}" aria-label="ShiftWise Home">
-      <img src="{% static 'images/logo.png' %}" alt="ShiftWise Logo" class="logo mr-2" />
+      <img src="{% static 'images/logo.png' %}" alt="ShiftWise Logo" class="logo mr-2">
       <span class="font-weight-bold">ShiftWise</span>
     </a>
 
@@ -25,26 +25,26 @@
         <!-- Home Link -->
         <li class="nav-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
           <a class="nav-link" href="{% url 'home:home' %}"
-            aria-current="{% if request.resolver_match.url_name == 'home' %}page{% endif %}">Home</a>
+            {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>Home</a>
         </li>
 
         <!-- Contact Link -->
         <li class="nav-item {% if request.resolver_match.url_name == 'contact' %}active{% endif %}">
           <a class="nav-link" href="{% url 'contact:contact' %}"
-            aria-current="{% if request.resolver_match.url_name == 'contact' %}page{% endif %}">Contact</a>
+            {% if request.resolver_match.url_name == 'contact' %}aria-current="page"{% endif %}>Contact</a>
         </li>
 
         {% if user.is_authenticated %}
         <!-- Dashboard Link -->
         <li class="nav-item {% if request.path == dashboard_url %}active{% endif %}">
           <a class="nav-link" href="{{ dashboard_url }}"
-            aria-current="{% if request.path == dashboard_url %}page{% endif %}">Dashboard</a>
+            {% if request.path == dashboard_url %}aria-current="page"{% endif %}>Dashboard</a>
         </li>
 
         <!-- View Shifts -->
         <li class="nav-item {% if request.resolver_match.url_name == 'shift_list' %}active{% endif %}">
           <a class="nav-link" href="{% url 'shifts:shift_list' %}"
-            aria-current="{% if request.resolver_match.url_name == 'shift_list' %}page{% endif %}">View Shifts</a>
+            {% if request.resolver_match.url_name == 'shift_list' %}aria-current="page"{% endif %}>View Shifts</a>
         </li>
 
         <!-- Tools Dropdown -->
