@@ -1,0 +1,13 @@
+[tool.black]
+line-length = 79
+target-version = ["py38"]
+include = '\.pyi?$'
+exclude = 'migrations/,venv/,env/,.git/'
+preview = true
+
+[tool.isort]
+profile = "black"
+line_length = 79
+skip = ["migrations/", "venv/", "env/", ".git/"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "DJANGO", "FIRSTPARTY", "LOCALFOLDER"]
+known_django = ["django", "rest_framework"]
