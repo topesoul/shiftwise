@@ -15,8 +15,21 @@
 
     <!-- SEO metadata -->
     <title>{% block title %}ShiftWise App{% endblock %}</title>
-    <meta name="description" content="ShiftWise App - Efficiently manage your shifts and schedules.">
-    <meta name="keywords" content="ShiftWise, shift management, schedule, productivity">
+    <meta name="description" content="{% block meta_description %}ShiftWise App - Efficiently manage your shifts and schedules for healthcare professionals.{% endblock %}">
+    <meta name="keywords" content="ShiftWise, shift management, healthcare staffing, schedule, productivity">
+    
+    <!-- Open Graph / Facebook Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.build_absolute_uri }}">
+    <meta property="og:title" content="{% block og_title %}ShiftWise - Modern Shift Management for Healthcare{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Streamline your healthcare staffing with ShiftWise's intelligent shift management platform.{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'images/logo.png' %}{% endblock %}">
+    
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block twitter_title %}ShiftWise - Modern Shift Management{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}Streamline your healthcare staffing with ShiftWise's intelligent shift management platform.{% endblock %}">
+    <meta name="twitter:image" content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'images/logo.png' %}{% endblock %}">
     
     <!-- API configuration -->
     <meta name="google-maps-api-key" content="{{ GOOGLE_PLACES_API_KEY }}">
