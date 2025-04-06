@@ -15,11 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import View
 
-from core.mixins import (
-    AgencyManagerRequiredMixin,
-    FeatureRequiredMixin,
-    SubscriptionRequiredMixin,
-)
+from core.mixins import AgencyManagerRequiredMixin, FeatureRequiredMixin, SubscriptionRequiredMixin
 from core.utils import ajax_response_with_message
 from shifts.forms import ShiftCompletionForm
 from shifts.models import Shift, ShiftAssignment
@@ -29,10 +25,12 @@ logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
+
 def can_complete_shift(user, shift):
     if user.is_superuser or ShiftAssignment.objects.filter(shift=shift, worker=user).exists():
         return True, ""
     return False, "You are not allowed to complete this shift."
+
 
 class ShiftCompleteView(
     LoginRequiredMixin,
@@ -100,9 +98,7 @@ class ShiftCompleteView(
                         name=f"shift_{shift.id}_signature_{uuid.uuid4()}.{ext}",
                     )
                 except Exception as e:
-                    logger.exception(
-                        f"Error processing signature for Shift ID {shift.id}: {e}"
-                    )
+                    logger.exception(f"Error processing signature for Shift ID {shift.id}: {e}")
                     messages.error(request, "Invalid signature data.")
                     return redirect("shifts:shift_detail", pk=shift.id)
             else:
@@ -126,9 +122,7 @@ class ShiftCompleteView(
                         )
 
                     except (ValueError, TypeError) as e:
-                        logger.exception(
-                            f"Invalid geolocation data for Shift ID {shift.id}: {e}"
-                        )
+                        logger.exception(f"Invalid geolocation data for Shift ID {shift.id}: {e}")
                         messages.error(request, "Invalid location data.")
                         return redirect("shifts:shift_detail", pk=shift.id)
 
@@ -157,15 +151,11 @@ class ShiftCompleteView(
 
             # Verify agency associations
             if not user.profile.agency:
-                messages.error(
-                    request, "Your profile is not associated with any agency."
-                )
+                messages.error(request, "Your profile is not associated with any agency.")
                 return redirect("accounts:profile")
 
             if shift.agency != user.profile.agency:
-                messages.error(
-                    request, "You can only complete shifts within your agency."
-                )
+                messages.error(request, "You can only complete shifts within your agency.")
                 return redirect("shifts:shift_detail", pk=shift.id)
 
             # Update assignment completion data
@@ -221,8 +211,10 @@ class ShiftCompleteForUserView(
     required_features = ["shift_management"]
 
     def dispatch(self, request, *args, **kwargs):
-        if not (request.user.is_superuser or 
-                request.user.groups.filter(name__in=["Agency Managers", "Agency Owners"]).exists()):
+        if not (
+            request.user.is_superuser
+            or request.user.groups.filter(name__in=["Agency Managers", "Agency Owners"]).exists()
+        ):
             messages.error(request, "You don't have permission to complete shifts for other users.")
             return redirect("shifts:shift_list")
         return super().dispatch(request, *args, **kwargs)
@@ -230,29 +222,27 @@ class ShiftCompleteForUserView(
     def get(self, request, shift_id, user_id, *args, **kwargs):
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
         user_to_complete = get_object_or_404(User, id=user_id, is_active=True)
-        
+
         # Verify user role eligibility
-        is_valid_user = user_to_complete.groups.filter(name="Agency Staff").exists() or user_to_complete.is_superuser
-        
+        is_valid_user = (
+            user_to_complete.groups.filter(name="Agency Staff").exists()
+            or user_to_complete.is_superuser
+        )
+
         if not is_valid_user:
             messages.error(
-                request, 
-                f"User {user_to_complete.get_full_name()} cannot have shifts completed on their behalf because they are not Agency Staff."
+                request,
+                f"User {user_to_complete.get_full_name()} cannot have shifts completed on their behalf because they are not Agency Staff.",
             )
             return redirect("shifts:shift_detail", pk=shift.id)
 
         # Verify agency permissions
-        if (
-            not request.user.is_superuser
-            and shift.agency != request.user.profile.agency
-        ):
+        if not request.user.is_superuser and shift.agency != request.user.profile.agency:
             messages.error(request, "You cannot complete shifts outside your agency.")
             return redirect("shifts:shift_detail", pk=shift.id)
 
         if user_to_complete.profile.agency != shift.agency:
-            messages.error(
-                request, "The worker does not belong to the same agency as the shift."
-            )
+            messages.error(request, "The worker does not belong to the same agency as the shift.")
             return redirect("shifts:shift_detail", pk=shift.id)
 
         if shift.is_completed:
@@ -271,22 +261,22 @@ class ShiftCompleteForUserView(
         shift = get_object_or_404(Shift, id=shift_id, is_active=True)
         user = request.user
         user_to_complete = get_object_or_404(User, id=user_id, is_active=True)
-        
+
         # Verify worker eligibility
-        is_valid_user = user_to_complete.groups.filter(name="Agency Staff").exists() or user_to_complete.is_superuser
-        
+        is_valid_user = (
+            user_to_complete.groups.filter(name="Agency Staff").exists()
+            or user_to_complete.is_superuser
+        )
+
         if not is_valid_user:
             messages.error(
-                request, 
-                f"User {user_to_complete.get_full_name()} cannot have shifts completed on their behalf because they are not Agency Staff."
+                request,
+                f"User {user_to_complete.get_full_name()} cannot have shifts completed on their behalf because they are not Agency Staff.",
             )
             return redirect("shifts:shift_detail", pk=shift.id)
 
         # Agency permission checks
-        if (
-            not request.user.is_superuser
-            and shift.agency != request.user.profile.agency
-        ):
+        if not request.user.is_superuser and shift.agency != request.user.profile.agency:
             messages.error(request, "You cannot complete shifts outside your agency.")
             logger.warning(
                 f"User {request.user.username} attempted to complete Shift ID {shift.id} outside their agency."
@@ -294,9 +284,7 @@ class ShiftCompleteForUserView(
             return redirect("shifts:shift_detail", pk=shift.id)
 
         if user_to_complete.profile.agency != shift.agency:
-            messages.error(
-                request, "The worker does not belong to the same agency as the shift."
-            )
+            messages.error(request, "The worker does not belong to the same agency as the shift.")
             return redirect("shifts:shift_detail", pk=shift.id)
 
         if shift.is_completed:
@@ -320,9 +308,7 @@ class ShiftCompleteForUserView(
                         name=f"shift_{shift.id}_signature_{uuid.uuid4()}.{ext}",
                     )
                 except Exception as e:
-                    logger.exception(
-                        f"Error processing signature for Shift ID {shift.id}: {e}"
-                    )
+                    logger.exception(f"Error processing signature for Shift ID {shift.id}: {e}")
                     messages.error(request, "Invalid signature data.")
                     return redirect("shifts:shift_detail", pk=shift.id)
             else:
@@ -355,9 +341,7 @@ class ShiftCompleteForUserView(
                         )
 
                     except (ValueError, TypeError) as e:
-                        logger.exception(
-                            f"Invalid geolocation data for Shift ID {shift.id}: {e}"
-                        )
+                        logger.exception(f"Invalid geolocation data for Shift ID {shift.id}: {e}")
                         messages.error(request, "Invalid location data.")
                         return redirect("shifts:shift_detail", pk=shift.id)
 
@@ -434,20 +418,16 @@ class ShiftCompleteAjaxView(
 
         # Permission check
         if not (
-            ShiftAssignment.objects.filter(shift=shift, worker=user).exists()
-            or user.is_superuser
+            ShiftAssignment.objects.filter(shift=shift, worker=user).exists() or user.is_superuser
         ):
             return ajax_response_with_message(
-                False, 
+                False,
                 "You do not have permission to complete this shift.",
-                {'redirect': reverse('shifts:shift_detail', kwargs={'pk': shift_id})}
+                {"redirect": reverse("shifts:shift_detail", kwargs={"pk": shift_id})},
             )
 
         if shift.is_completed:
-            return ajax_response_with_message(
-                False, 
-                "This shift has already been completed."
-            )
+            return ajax_response_with_message(False, "This shift has already been completed.")
 
         signature = request.POST.get("signature")
         latitude = request.POST.get("latitude")
@@ -467,10 +447,7 @@ class ShiftCompleteAjaxView(
                 logger.exception(
                     f"Error decoding signature from user {user.username} for Shift ID {shift_id}: {e}"
                 )
-                return ajax_response_with_message(
-                    False, 
-                    "Invalid signature data."
-                )
+                return ajax_response_with_message(False, "Invalid signature data.")
         else:
             data = None
 
@@ -488,15 +465,12 @@ class ShiftCompleteAjaxView(
                     )
 
                 except (ValueError, TypeError):
-                    return ajax_response_with_message(
-                        False, 
-                        "Invalid location data."
-                    )
+                    return ajax_response_with_message(False, "Invalid location data.")
 
                 if distance > 0.5:
                     return ajax_response_with_message(
                         False,
-                        f"You are not within the required 0.5-mile distance to complete this shift. Current distance: {distance:.2f} miles."
+                        f"You are not within the required 0.5-mile distance to complete this shift. Current distance: {distance:.2f} miles.",
                     )
 
         # Update shift data
@@ -523,17 +497,13 @@ class ShiftCompleteAjaxView(
             logger.error(
                 f"ShiftAssignment does not exist for user {user.username} and shift {shift.id}."
             )
-            return ajax_response_with_message(
-                False, 
-                "Shift assignment not found."
-            )
+            return ajax_response_with_message(False, "Shift assignment not found.")
         except Exception as e:
             logger.exception(
                 f"Error updating ShiftAssignment for user {user.username} and shift {shift.id}: {e}"
             )
             return ajax_response_with_message(
-                False, 
-                "An error occurred while completing the shift."
+                False, "An error occurred while completing the shift."
             )
 
         # Verify all assignments are complete
@@ -550,20 +520,14 @@ class ShiftCompleteAjaxView(
             shift.clean(skip_date_validation=True)
             shift.save()
         except ValidationError as ve:
-            return ajax_response_with_message(
-                False, 
-                ve.message
-            )
+            return ajax_response_with_message(False, ve.message)
 
         logger.info(f"User {user.username} completed Shift ID {shift_id} via AJAX.")
         return ajax_response_with_message(
-            True, 
+            True,
             "Shift completed successfully.",
-            {'redirect': reverse('shifts:shift_detail', kwargs={'pk': shift_id})}
+            {"redirect": reverse("shifts:shift_detail", kwargs={"pk": shift_id})},
         )
 
     def get(self, request, shift_id, *args, **kwargs):
-        return ajax_response_with_message(
-            False, 
-            "Invalid request method."
-        )
+        return ajax_response_with_message(False, "Invalid request method.")

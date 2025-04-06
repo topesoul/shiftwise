@@ -59,11 +59,7 @@ from .assignment_views import AssignWorkerView, UnassignWorkerView
 from .booking_views import ShiftBookView, ShiftUnbookView
 
 # Shift Completion Views
-from .completion_views import (
-    ShiftCompleteAjaxView,
-    ShiftCompleteForUserView,
-    ShiftCompleteView,
-)
+from .completion_views import ShiftCompleteAjaxView, ShiftCompleteForUserView, ShiftCompleteView
 
 # Staff Performance Views
 from .performance_views import (
@@ -87,9 +83,4 @@ from .shift_views import (
 )
 
 # Staff Management Views
-from .staff_views import (
-    StaffCreateView,
-    StaffDeleteView,
-    StaffListView,
-    StaffUpdateView,
-)
+from .staff_views import StaffCreateView, StaffDeleteView, StaffListView, StaffUpdateView

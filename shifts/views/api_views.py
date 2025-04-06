@@ -25,9 +25,7 @@ class ShiftDetailsAPIView(LoginRequiredMixin, View):
             "id": shift.id,
             "name": shift.name,
             "shift_date": shift.shift_date,
-            "start_time": (
-                shift.start_time.strftime("%H:%M:%S") if shift.start_time else ""
-            ),
+            "start_time": (shift.start_time.strftime("%H:%M:%S") if shift.start_time else ""),
             "end_time": shift.end_time.strftime("%H:%M:%S") if shift.end_time else "",
             "status": shift.status,
             "capacity": shift.capacity,

@@ -7,19 +7,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import (
-    CreateView,
-    DeleteView,
-    DetailView,
-    ListView,
-    UpdateView,
-)
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
-from core.mixins import (
-    AgencyManagerRequiredMixin,
-    FeatureRequiredMixin,
-    SubscriptionRequiredMixin,
-)
+from core.mixins import AgencyManagerRequiredMixin, FeatureRequiredMixin, SubscriptionRequiredMixin
 from shifts.forms import StaffPerformanceForm
 from shifts.models import StaffPerformance
 from shiftwise.utils import generate_shift_code
@@ -113,9 +103,7 @@ class StaffPerformanceCreateView(
         form.save_m2m()
 
         messages.success(self.request, "Staff performance record created successfully.")
-        logger.info(
-            f"Staff performance record '{performance}' created by {user.username}."
-        )
+        logger.info(f"Staff performance record '{performance}' created by {user.username}.")
         return super().form_valid(form)
 
 
@@ -184,7 +172,5 @@ class StaffPerformanceDeleteView(
     def delete(self, request, *args, **kwargs):
         performance = self.get_object()
         messages.success(request, "Staff performance record deleted successfully.")
-        logger.info(
-            f"Staff performance record '{performance}' deleted by {request.user.username}."
-        )
+        logger.info(f"Staff performance record '{performance}' deleted by {request.user.username}.")
         return super().delete(request, *args, **kwargs)

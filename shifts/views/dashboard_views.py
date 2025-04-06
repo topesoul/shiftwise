@@ -38,9 +38,7 @@ class DashboardView(LoginRequiredMixin, FeatureRequiredMixin, TemplateView):
         context["shifts"] = shifts.distinct()
 
         # Fetch unread notifications
-        context["notifications"] = user.notifications.filter(read=False).order_by(
-            "-created_at"
-        )
+        context["notifications"] = user.notifications.filter(read=False).order_by("-created_at")
 
         logger.debug(
             f"Dashboard accessed by user {user.username}. Number of shifts: {shifts.count()}, Unread notifications: {context['notifications'].count()}"

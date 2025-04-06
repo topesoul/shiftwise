@@ -14,11 +14,7 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
 from accounts.forms import StaffCreationForm, StaffUpdateForm
-from core.mixins import (
-    AgencyManagerRequiredMixin,
-    FeatureRequiredMixin,
-    SubscriptionRequiredMixin,
-)
+from core.mixins import AgencyManagerRequiredMixin, FeatureRequiredMixin, SubscriptionRequiredMixin
 from shifts.models import Shift
 
 # Initialize logger
@@ -54,9 +50,7 @@ class StaffListView(
         date_to = self.request.GET.get("date_to", "")
 
         # Base queryset filtering Agency Staff and active users
-        staff_members = User.objects.filter(
-            groups__name="Agency Staff", is_active=True
-        )
+        staff_members = User.objects.filter(groups__name="Agency Staff", is_active=True)
 
         if not user.is_superuser and agency:
             staff_members = staff_members.filter(profile__agency=agency)
@@ -148,25 +142,27 @@ class StaffCreateView(
 
     def form_valid(self, form):
         user = form.save(commit=False)
-        
+
         # Generate a random password for the new user
         from core.utils import generate_random_password, send_notification_email
+
         raw_password = generate_random_password()
         user.set_password(raw_password)
-        
+
         # Determine agency for the user
         agency = None
         if not self.request.user.is_superuser:
             agency = self.request.user.profile.agency
             if not agency:
                 from core.mixins import handle_permission_error
+
                 logger.warning(
                     f"User {self.request.user.username} attempted to add staff without an associated agency."
                 )
                 return handle_permission_error(
                     self.request,
                     "You must be associated with an agency to add staff members.",
-                    "accounts:profile"
+                    "accounts:profile",
                 )
             user.save()
             user.profile.agency = agency
@@ -175,41 +171,45 @@ class StaffCreateView(
         else:
             agency = form.cleaned_data.get("agency")
             user.save()
-            
+
         # Add to 'Agency Staff' group
         agency_staff_group, _ = Group.objects.get_or_create(name="Agency Staff")
         user.groups.add(agency_staff_group)
-        
+
         # Send email notification to the new user
-        from django.urls import reverse
         from django.contrib.sites.shortcuts import get_current_site
-        
+        from django.urls import reverse
+
         current_site = get_current_site(self.request)
         login_url = f"https://{current_site.domain}{reverse('accounts:login_view')}"
-        
+
         email_context = {
-            'user': user,
-            'password': raw_password,
-            'created_by': self.request.user.get_full_name() or self.request.user.username,
-            'login_url': login_url,
-            'agency': agency
+            "user": user,
+            "password": raw_password,
+            "created_by": self.request.user.get_full_name() or self.request.user.username,
+            "login_url": login_url,
+            "agency": agency,
         }
-        
+
         email_sent = send_notification_email(
             to_email=user.email,
             subject="Your New ShiftWise Account",
             template_path="accounts/emails/new_staff_account.txt",
-            context=email_context
+            context=email_context,
         )
-        
+
         if email_sent:
-            messages.success(self.request, f"Staff member added successfully and notification email sent to {user.email}.")
-        else:
-            messages.warning(self.request, 
-                f"Staff member added successfully but notification email could not be sent to {user.email}. "
-                f"Please provide them with their username ({user.username}) and temporary password manually."
+            messages.success(
+                self.request,
+                f"Staff member added successfully and notification email sent to {user.email}.",
             )
-            
+        else:
+            messages.warning(
+                self.request,
+                f"Staff member added successfully but notification email could not be sent to {user.email}. "
+                f"Please provide them with their username ({user.username}) and temporary password manually.",
+            )
+
         logger.info(f"Staff member {user.username} added by {self.request.user.username}.")
         return super().form_valid(form)
 
@@ -243,46 +243,53 @@ class StaffUpdateView(
         if not user.is_superuser:
             if staff_member.profile.agency != user.profile.agency:
                 from core.mixins import handle_permission_error
+
                 return handle_permission_error(
                     request,
                     "You do not have permission to edit this staff member.",
-                    "shifts:staff_list"
+                    "shifts:staff_list",
                 )
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         from core.utils import send_notification_email
-        
+
         # Capture the changed fields for the notification
         changed_fields = []
         if form.has_changed():
-            changed_fields = [form.fields[field].label or field.replace('_', ' ').title() 
-                             for field in form.changed_data]
-        
+            changed_fields = [
+                form.fields[field].label or field.replace("_", " ").title()
+                for field in form.changed_data
+            ]
+
         user = form.save()
-        
+
         # Send email notification about the update
         if changed_fields:
             email_context = {
-                'user': user,
-                'updated_by': self.request.user.get_full_name() or self.request.user.username,
-                'updated_fields': changed_fields
+                "user": user,
+                "updated_by": self.request.user.get_full_name() or self.request.user.username,
+                "updated_fields": changed_fields,
             }
-            
+
             email_sent = send_notification_email(
                 to_email=user.email,
                 subject="Your ShiftWise Account Has Been Updated",
                 template_path="accounts/emails/user_updated.txt",
-                context=email_context
+                context=email_context,
             )
-            
+
             if email_sent:
-                messages.success(self.request, f"Staff member updated successfully and notification email sent to {user.email}.")
-            else:
-                messages.warning(self.request, 
-                    f"Staff member updated successfully but notification email could not be sent to {user.email}."
+                messages.success(
+                    self.request,
+                    f"Staff member updated successfully and notification email sent to {user.email}.",
                 )
-        
+            else:
+                messages.warning(
+                    self.request,
+                    f"Staff member updated successfully but notification email could not be sent to {user.email}.",
+                )
+
         logger.info(f"Staff member {user.username} updated by {self.request.user.username}.")
         return super().form_valid(form)
 
@@ -315,44 +322,47 @@ class StaffDeleteView(
         if not user.is_superuser:
             if staff_member.profile.agency != user.profile.agency:
                 from core.mixins import handle_permission_error
+
                 return handle_permission_error(
                     request,
                     "You do not have permission to deactivate this staff member.",
-                    "shifts:staff_list"
+                    "shifts:staff_list",
                 )
         return super().dispatch(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
         from core.utils import send_notification_email
-        
+
         staff_member = self.get_object()
         staff_member.is_active = False
         staff_member.save()
-        
+
         # Send email notification about the deactivation
         email_context = {
-            'user': staff_member,
-            'deactivated_by': request.user.get_full_name() or request.user.username
+            "user": staff_member,
+            "deactivated_by": request.user.get_full_name() or request.user.username,
         }
-        
+
         email_sent = send_notification_email(
             to_email=staff_member.email,
             subject="Your ShiftWise Account Has Been Deactivated",
             template_path="accounts/emails/user_deactivated.txt",
-            context=email_context
+            context=email_context,
         )
-        
+
         if email_sent:
-            messages.success(request, 
+            messages.success(
+                request,
                 f'Staff member "{staff_member.username}" has been deactivated successfully '
-                f'and notification email sent to {staff_member.email}.'
+                f"and notification email sent to {staff_member.email}.",
             )
         else:
-            messages.warning(request, 
+            messages.warning(
+                request,
                 f'Staff member "{staff_member.username}" has been deactivated successfully '
-                f'but notification email could not be sent to {staff_member.email}.'
+                f"but notification email could not be sent to {staff_member.email}.",
             )
-            
+
         logger.info(
             f"Staff member {staff_member.username} deactivated by user {request.user.username}."
         )

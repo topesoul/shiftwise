@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+
 from django.core.exceptions import ImproperlyConfigured
 
 # Load env.py if it exists
@@ -35,9 +36,7 @@ if DEBUG:
 
 FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY")
 if not FIELD_ENCRYPTION_KEY:
-    raise ImproperlyConfigured(
-        "FIELD_ENCRYPTION_KEY must be set in environment variables."
-    )
+    raise ImproperlyConfigured("FIELD_ENCRYPTION_KEY must be set in environment variables.")
 
 # -----------------------------------------------------------------------------
 # Application Definition
@@ -75,7 +74,7 @@ INSTALLED_APPS = [
     "contact",
     "notifications",
     # 'debug_toolbar',
-    'django_cleanup.apps.CleanupConfig',
+    "django_cleanup.apps.CleanupConfig",
 ]
 
 CRISPY_TEMPLATE_PACK = "bootstrap4"
@@ -100,14 +99,14 @@ MIDDLEWARE = [
 
 from django.contrib.messages import constants as messages
 
-MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
+MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"
 
 MESSAGE_TAGS = {
-    messages.DEBUG: 'alert-info',
-    messages.INFO: 'alert-info',
-    messages.SUCCESS: 'alert-success',
-    messages.WARNING: 'alert-warning',
-    messages.ERROR: 'alert-danger',
+    messages.DEBUG: "alert-info",
+    messages.INFO: "alert-info",
+    messages.SUCCESS: "alert-success",
+    messages.WARNING: "alert-warning",
+    messages.ERROR: "alert-danger",
 }
 
 ROOT_URLCONF = "shiftwise.urls"
@@ -116,9 +115,7 @@ SITE_URL = os.getenv("SITE_URL")
 
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
 if not GOOGLE_PLACES_API_KEY:
-    raise ImproperlyConfigured(
-        "GOOGLE_PLACES_API_KEY must be set in environment variables."
-    )
+    raise ImproperlyConfigured("GOOGLE_PLACES_API_KEY must be set in environment variables.")
 
 TEMPLATES = [
     {
@@ -169,23 +166,23 @@ DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-        'OPTIONS': {
-            'user_attributes': ('username', 'email', 'first_name', 'last_name'),
-            'max_similarity': 0.7,
-        }
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "OPTIONS": {
+            "user_attributes": ("username", "email", "first_name", "last_name"),
+            "max_similarity": 0.7,
+        },
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {
-            'min_length': 12,
-        }
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {
+            "min_length": 12,
+        },
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -240,7 +237,7 @@ ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 
 # Rate limiting config
 ACCOUNT_RATE_LIMITS = {
-    'login_failed': {'attempts': 5, 'timeout': 300},
+    "login_failed": {"attempts": 5, "timeout": 300},
     # 'login_success': {'attempts': 10, 'timeout': 86400},
     # 'signup': {'attempts': 5, 'timeout': 86400},
     # 'confirm_email': {'attempts': 3, 'timeout': 300},
@@ -309,7 +306,7 @@ CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if ori
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = True
 CSRF_USE_SESSIONS = True
-CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = "Lax"
 
 # -----------------------------------------------------------------------------
 # Logging
@@ -417,9 +414,7 @@ if USE_AWS:
             "AWS credentials and bucket configuration must be set in environment variables."
         )
 
-    AWS_S3_CUSTOM_DOMAIN = (
-        f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
-    )
+    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
 
     AWS_DEFAULT_ACL = None
 
@@ -454,17 +449,17 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = True
-    
+
     # HSTS configuration (31536000 = 1 year)
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-    
+
     # XSS, content-type and clickjacking protections
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "SAMEORIGIN"  # Allows same-origin frames
     SECURE_BROWSER_XSS_FILTER = True
-    
+
     # SSL and referrer policy
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"

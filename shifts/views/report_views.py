@@ -14,11 +14,7 @@ from django.utils import timezone
 from django.views.generic import TemplateView, View
 
 from accounts.models import Agency
-from core.mixins import (
-    AgencyManagerRequiredMixin,
-    FeatureRequiredMixin,
-    SubscriptionRequiredMixin,
-)
+from core.mixins import AgencyManagerRequiredMixin, FeatureRequiredMixin, SubscriptionRequiredMixin
 from shifts.models import Shift, StaffPerformance
 
 # Initialize logger
@@ -49,9 +45,7 @@ class TimesheetDownloadView(
 
     def get(self, request, *args, **kwargs):
         try:
-            agency = (
-                request.user.profile.agency if not request.user.is_superuser else None
-            )
+            agency = request.user.profile.agency if not request.user.is_superuser else None
             if not request.user.is_superuser and not agency:
                 messages.error(request, "You are not associated with any agency.")
                 logger.error(
@@ -66,9 +60,7 @@ class TimesheetDownloadView(
             date_to = request.GET.get("date_to", "")
 
             # Base queryset filtering Agency Staff and active users
-            staff_members = User.objects.filter(
-                groups__name="Agency Staff", is_active=True
-            )
+            staff_members = User.objects.filter(groups__name="Agency Staff", is_active=True)
 
             if not request.user.is_superuser:
                 staff_members = staff_members.filter(profile__agency=agency)
@@ -143,11 +135,7 @@ class TimesheetDownloadView(
                         staff.completed_shifts or 0,
                         staff.pending_shifts or 0,
                         staff.total_hours or 0,  # Ensure no None values
-                        (
-                            "{0:.2f}".format(staff.total_pay)
-                            if staff.total_pay
-                            else "0.00"
-                        ),
+                        ("{0:.2f}".format(staff.total_pay) if staff.total_pay else "0.00"),
                     )
 
             # Initialize StreamingHttpResponse with a generator
@@ -221,12 +209,9 @@ class ReportDashboardView(
         context["shift_data"] = shift_data
 
         # Performance data
-        avg_wellness = (
-            performances.aggregate(Avg("wellness_score"))["wellness_score__avg"] or 0
-        )
+        avg_wellness = performances.aggregate(Avg("wellness_score"))["wellness_score__avg"] or 0
         avg_rating = (
-            performances.aggregate(Avg("performance_rating"))["performance_rating__avg"]
-            or 0
+            performances.aggregate(Avg("performance_rating"))["performance_rating__avg"] or 0
         )
 
         context["avg_wellness"] = round(avg_wellness, 2)

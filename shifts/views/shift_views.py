@@ -7,11 +7,26 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.db.models import BooleanField, Case, Count, Exists, F, OuterRef, Q, When
+from django.db.models import (
+    BooleanField,
+    Case,
+    Count,
+    Exists,
+    F,
+    OuterRef,
+    Q,
+    When,
+)
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    ListView,
+    UpdateView,
+)
 
 from core.mixins import (
     AgencyManagerRequiredMixin,
@@ -109,7 +124,9 @@ class ShiftListView(
                 )
 
         # Add assignment status for current user
-        assignments = ShiftAssignment.objects.filter(shift=OuterRef("pk"), worker=user)
+        assignments = ShiftAssignment.objects.filter(
+            shift=OuterRef("pk"), worker=user
+        )
         queryset = queryset.annotate(is_assigned=Exists(assignments))
 
         return queryset
@@ -248,7 +265,8 @@ class ShiftDetailView(
             and shift.is_active
         )
         context["can_unbook"] = (
-            user.groups.filter(name="Agency Staff").exists() and context["is_assigned"]
+            user.groups.filter(name="Agency Staff").exists()
+            and context["is_assigned"]
         )
         context["can_edit"] = user.is_superuser or (
             user.groups.filter(name="Agency Managers").exists()
@@ -263,11 +281,11 @@ class ShiftDetailView(
             or user.groups.filter(name="Agency Managers").exists()
             or user.groups.filter(name="Agency Owners").exists()
         )
-        
+
         if is_manager:
             context["assigned_workers"] = shift.assignments.all()
             context["can_assign_workers"] = True
-            
+
             # Worker assignment data
             if user.is_superuser:
                 available_workers = User.objects.filter(
@@ -333,8 +351,13 @@ class ShiftCreateView(
     def dispatch(self, request, *args, **kwargs):
         """Verify agency association before allowing shift creation"""
         if not request.user.is_superuser:
-            if not hasattr(request.user, "profile") or not request.user.profile.agency:
-                messages.error(request, "You are not associated with any agency.")
+            if (
+                not hasattr(request.user, "profile")
+                or not request.user.profile.agency
+            ):
+                messages.error(
+                    request, "You are not associated with any agency."
+                )
                 logger.warning(
                     f"User {request.user.username} attempted to create shift without an associated agency."
                 )
@@ -386,7 +409,7 @@ class ShiftCreateView(
             f"Shift '{shift.name}' created by {self.request.user.username} for agency {agency.name}."
         )
         return super().form_valid(form)
-        
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["GOOGLE_PLACES_API_KEY"] = settings.GOOGLE_PLACES_API_KEY
@@ -428,7 +451,9 @@ class ShiftUpdateView(
         shift.save()
         form.save_m2m()
 
-        logger.info(f"Shift '{shift.name}' updated by {self.request.user.username}.")
+        logger.info(
+            f"Shift '{shift.name}' updated by {self.request.user.username}."
+        )
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
