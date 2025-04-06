@@ -5,11 +5,11 @@ import logging
 import uuid
 from math import atan2, cos, radians, sin, sqrt
 
-from django.conf import settings
-from django.core.cache import cache
-
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 from geopy.geocoders import GoogleV3
+
+from django.conf import settings
+from django.core.cache import cache
 
 from accounts.models import User
 from shifts.models import ShiftAssignment
@@ -23,9 +23,7 @@ def haversine_distance(lat1, lon1, lat2, lon2, unit="miles"):
     on the Earth specified by latitude/longitude using the Haversine formula.
     """
     # Convert latitude and longitude from degrees to radians
-    lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(
-        radians, [lat1, lon1, lat2, lon2]
-    )
+    lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(radians, [lat1, lon1, lat2, lon2])
 
     # Haversine formula
     dlat = lat2_rad - lat1_rad
@@ -168,9 +166,7 @@ def get_address_from_address_line1(address_line1):
         geolocator = GoogleV3(api_key=settings.GOOGLE_PLACES_API_KEY)
         location = geolocator.geocode(address_line1, timeout=10)
         if not location:
-            logger.warning(
-                f"No results from Geocoding API for address_line1: {address_line1}"
-            )
+            logger.warning(f"No results from Geocoding API for address_line1: {address_line1}")
             return []
         address = {
             "address_line1": location.address,
@@ -181,9 +177,7 @@ def get_address_from_address_line1(address_line1):
         logger.info(f"Geocoded and cached address_line1: {address_line1}")
         return [address]
     except (GeocoderTimedOut, GeocoderServiceError) as e:
-        logger.exception(
-            f"Geocoding service error for address_line1 '{address_line1}': {e}"
-        )
+        logger.exception(f"Geocoding service error for address_line1 '{address_line1}': {e}")
         return []
     except Exception as e:
         logger.exception(

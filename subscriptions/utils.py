@@ -1,12 +1,14 @@
 # /workspace/shiftwise/subscriptions/utils.py
 
 import logging
-from datetime import datetime, timezone as datetime_timezone
+from datetime import datetime
+from datetime import timezone as datetime_timezone
 
-from django.conf import settings
 import stripe
 
-from .models import Subscription, Plan
+from django.conf import settings
+
+from .models import Plan, Subscription
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +26,7 @@ def create_stripe_customer(agency):
         customers = stripe.Customer.list(email=agency.email, limit=1)
         if customers.data:
             customer = customers.data[0]
-            logger.info(
-                f"Existing Stripe customer found: {customer.id} for agency: {agency.name}"
-            )
+            logger.info(f"Existing Stripe customer found: {customer.id} for agency: {agency.name}")
             return customer
 
         # Create new customer if none exists

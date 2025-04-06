@@ -1,7 +1,9 @@
 # /workspace/shiftwise/subscriptions/admin.py
 
 from django.contrib import admin
+
 from .models import Plan, Subscription
+
 
 @admin.register(Plan)
 class PlanAdmin(admin.ModelAdmin):
@@ -42,6 +44,7 @@ class PlanAdmin(admin.ModelAdmin):
         ),
         ("Status", {"fields": ("is_active", "is_recommended")}),
     )
+
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):

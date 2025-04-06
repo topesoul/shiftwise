@@ -4,6 +4,7 @@ import logging
 from decimal import Decimal
 
 import stripe
+
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
@@ -19,9 +20,7 @@ class Command(BaseCommand):
         stripe.api_key = settings.STRIPE_SECRET_KEY
         try:
             # Retrieve all active GBP prices from Stripe
-            prices = stripe.Price.list(
-                currency="gbp", active=True, expand=["data.product"]
-            )
+            prices = stripe.Price.list(currency="gbp", active=True, expand=["data.product"])
 
             # Collect all Stripe price IDs to identify inactive plans later
             synced_stripe_price_ids = []
@@ -68,47 +67,27 @@ class Command(BaseCommand):
                     )  # Convert from pence to pounds
                 except (ValueError, TypeError):
                     self.stderr.write(
-                        self.style.ERROR(
-                            f"Invalid unit_amount_decimal for price ID {price.id}"
-                        )
+                        self.style.ERROR(f"Invalid unit_amount_decimal for price ID {price.id}")
                     )
-                    logger.error(
-                        f"Invalid unit_amount_decimal for price ID {price.id}"
-                    )
+                    logger.error(f"Invalid unit_amount_decimal for price ID {price.id}")
                     continue  # Skip this price
 
                 # Map Stripe product metadata to feature flags
                 metadata = product.get("metadata", {})
                 notifications_enabled = (
-                    metadata.get("notifications_enabled", "false").lower()
-                    == "true"
+                    metadata.get("notifications_enabled", "false").lower() == "true"
                 )
-                advanced_reporting = (
-                    metadata.get("advanced_reporting", "false").lower()
-                    == "true"
-                )
-                priority_support = (
-                    metadata.get("priority_support", "false").lower() == "true"
-                )
-                shift_management = (
-                    metadata.get("shift_management", "false").lower() == "true"
-                )
-                staff_performance = (
-                    metadata.get("staff_performance", "false").lower()
-                    == "true"
-                )
-                custom_integrations = (
-                    metadata.get("custom_integrations", "false").lower()
-                    == "true"
-                )
+                advanced_reporting = metadata.get("advanced_reporting", "false").lower() == "true"
+                priority_support = metadata.get("priority_support", "false").lower() == "true"
+                shift_management = metadata.get("shift_management", "false").lower() == "true"
+                staff_performance = metadata.get("staff_performance", "false").lower() == "true"
+                custom_integrations = metadata.get("custom_integrations", "false").lower() == "true"
 
                 # Extract shift_limit from metadata if available
                 shift_limit = metadata.get("shift_limit")
                 if shift_limit:
                     # Remove surrounding quotes if any and convert to lowercase
-                    shift_limit_clean = (
-                        shift_limit.strip('"').strip("'").lower()
-                    )
+                    shift_limit_clean = shift_limit.strip('"').strip("'").lower()
                     if shift_limit_clean in ["none", "null", ""]:
                         shift_limit = None
                     else:
@@ -167,18 +146,14 @@ class Command(BaseCommand):
                     plan.is_active = True
                     plan.save()
                     self.stdout.write(
-                        self.style.SUCCESS(
-                            f"Updated plan: {plan_name} ({billing_cycle_display})"
-                        )
+                        self.style.SUCCESS(f"Updated plan: {plan_name} ({billing_cycle_display})")
                     )
                     logger.info(
                         f"Updated plan: {plan_name} ({billing_cycle_display}) from Stripe price ID {price.id}"
                     )
                 else:
                     self.stdout.write(
-                        self.style.SUCCESS(
-                            f"Created plan: {plan_name} ({billing_cycle_display})"
-                        )
+                        self.style.SUCCESS(f"Created plan: {plan_name} ({billing_cycle_display})")
                     )
                     logger.info(
                         f"Created plan: {plan_name} ({billing_cycle_display}) with Stripe price ID {price.id}"
@@ -204,6 +179,4 @@ class Command(BaseCommand):
             logger.error(f"Stripe Error during sync_stripe_plans: {str(e)}")
         except Exception as e:
             self.stderr.write(self.style.ERROR(f"Unexpected Error: {str(e)}"))
-            logger.exception(
-                f"Unexpected Error during sync_stripe_plans: {str(e)}"
-            )
+            logger.exception(f"Unexpected Error during sync_stripe_plans: {str(e)}")

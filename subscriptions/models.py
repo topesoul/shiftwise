@@ -31,9 +31,7 @@ class Plan(models.Model):
         choices=PLAN_CHOICES,
         help_text="Name of the subscription plan.",
     )
-    description = models.TextField(
-        help_text="Detailed description of the subscription plan."
-    )
+    description = models.TextField(help_text="Detailed description of the subscription plan.")
     stripe_product_id = models.CharField(
         max_length=100,
         null=True,
@@ -261,9 +259,7 @@ class Subscription(models.Model):
         # Enforce that stripe_subscription_id is unique when provided
         if self.stripe_subscription_id:
             if (
-                Subscription.objects.filter(
-                    stripe_subscription_id=self.stripe_subscription_id
-                )
+                Subscription.objects.filter(stripe_subscription_id=self.stripe_subscription_id)
                 .exclude(pk=self.pk)
                 .exists()
             ):

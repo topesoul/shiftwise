@@ -16,9 +16,7 @@ class UsageLimitTestCase(TestCase):
         self.user = User.objects.create_user(username="owner", password="pass")
         self.agency_owner_group, _ = Group.objects.get_or_create(name="Agency Owners")
         self.user.groups.add(self.agency_owner_group)
-        self.agency = Agency.objects.create(
-            name="Test Agency", email="agency@example.com"
-        )
+        self.agency = Agency.objects.create(name="Test Agency", email="agency@example.com")
         self.profile = Profile.objects.create(user=self.user, agency=self.agency)
 
         # Create plans

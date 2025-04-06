@@ -25,7 +25,5 @@ def handle_agency_creation(sender, instance, created, **kwargs):
                     f"Stripe customer created for Agency: {instance.name} (ID: {customer.id})"
                 )
             except Exception as e:
-                logger.error(
-                    f"Failed to create Stripe customer for Agency {instance.name}: {e}"
-                )
+                logger.error(f"Failed to create Stripe customer for Agency {instance.name}: {e}")
                 raise  # Re-raise to rollback the transaction
