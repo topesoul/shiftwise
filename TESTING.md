@@ -568,7 +568,7 @@ A critical component of the ShiftWise application is the UK address autocomplete
 
 ### Address Testing Methodology
 
-To identify and resolve these issues, the following testing approach was implemented:
+Testing methodology for address functionality:
 
 1. **Comprehensive Address Testing Matrix**:
    - Tested 30+ UK addresses with various formats
@@ -595,6 +595,24 @@ The inline implementation in base.html solved these issues by:
 4. Correctly mapping address components to their corresponding fields
 
 While this approach deviates from ideal separation of concerns, it was the only implementation that reliably solved all identified issues after extensive testing.
+
+### JavaScript Implementation Strategy
+
+The decision to use inline JavaScript for specific critical components was made after thorough testing and analysis:
+
+| Component | Implementation | Justification |
+|-----------|---------------|---------------|
+| Google Maps Autocomplete | Inline in base.html | Critical initialization timing with API callback dependencies |
+| Shift Completion | Inline + External | Form-specific initialization requirements and real-time canvas rendering |
+| Data Transfer Scripts | Inline in templates | Need to access Django template context variables |
+
+**External JS Migration Challenges:**
+- Google Maps initialization in external files caused significant initialization timing issues
+- Callback functions must be available in the global scope before the API loads
+- External files introduced race conditions that couldn't be reliably resolved
+- Template-specific data required bridge scripts to transfer server data to client-side code
+
+For form validation and UI enhancements, external JavaScript files are used for better maintainability. Critical initialization code with timing dependencies remains inline based on testing results.
 
 ## Known Open Bugs
 
