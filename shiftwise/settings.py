@@ -250,25 +250,30 @@ ACCOUNT_RATE_LIMITS = {
 # Email
 # -----------------------------------------------------------------------------
 
-# Email backend selection logic
+# SendGrid API key
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+
+# Configure email backend based on environment
 if DEBUG:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 else:
-    # Use SendGrid if available, otherwise fall back to SMTP
-    SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
     if SENDGRID_API_KEY:
         EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
         SENDGRID_SANDBOX_MODE_IN_DEBUG = False
+        # SendGrid tracking configuration
+        SENDGRID_TRACK_CLICKS_PLAIN = False
+        SENDGRID_TRACK_CLICKS_HTML = False
+        SENDGRID_ECHO_TO_STDOUT = True
     else:
         EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
         
-# Email server configuration (SMTP)
+# SMTP configuration
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.sendgrid.net")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "apikey")  # Default for SendGrid
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "apikey")  # SendGrid default
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "") or SENDGRID_API_KEY
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@shiftwise.example.com")
 
 ADMINS = [
@@ -364,6 +369,16 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": True,
         },
+        "django.mail": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "sendgrid": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
     },
 }
 
@@ -435,14 +450,21 @@ else:
 # -----------------------------------------------------------------------------
 
 if not DEBUG:
+    # Secure cookie and connection settings
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 31536000  # One year
+    
+    # HSTS configuration (31536000 = 1 year)
+    SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    
+    # XSS, content-type and clickjacking protections
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = "SAMEORIGIN"
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    X_FRAME_OPTIONS = "SAMEORIGIN"  # Allows same-origin frames
     SECURE_BROWSER_XSS_FILTER = True
+    
+    # SSL and referrer policy
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
