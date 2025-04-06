@@ -81,6 +81,8 @@ body {
     line-height: 1.6;
     transition: background-color var(--transition-speed), color var(--transition-speed);
     -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
     text-size-adjust: 100%;
 }
 
