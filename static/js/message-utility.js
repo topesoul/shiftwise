@@ -1,5 +1,6 @@
+/* jshint esversion: 11 */
 /**
- * Utility for managing alert messages with consistent styling.
+ * Alert message management with consistent Bootstrap styling
  */
 class MessageUtility {
     constructor(options = {}) {
@@ -11,7 +12,7 @@ class MessageUtility {
             ...options
         };
 
-        // Map of alert types to Bootstrap classes.
+        // Bootstrap alert class mapping
         this.alertClasses = {
             'success': 'alert-success',
             'info': 'alert-info',
@@ -21,7 +22,6 @@ class MessageUtility {
         };
     }
 
-    // Returns or creates the message container.
     getContainer() {
         let container = document.querySelector(this.options.containerSelector);
 
@@ -38,7 +38,6 @@ class MessageUtility {
         return container;
     }
 
-    // Creates and displays an alert message.
     displayMessage(message, type = 'info', options = {}) {
         const container = this.getContainer();
         if (!container) return null;
@@ -46,7 +45,7 @@ class MessageUtility {
         const combinedOptions = { ...this.options, ...options };
         const alertClass = this.alertClasses[type] || 'alert-info';
 
-        // Map icon based on alert type
+        // Map appropriate icon for alert type
         let icon = '';
         if (type === 'success') {
             icon = '<i class="fas fa-check-circle mr-2"></i>';
@@ -78,12 +77,11 @@ class MessageUtility {
         return alertElement;
     }
 
-    // Dismisses the specified alert element.
     dismissAlert(alertElement) {
         if (!alertElement) return;
 
-        if (window.bootstrap && bootstrap.Alert) {
-            const bsAlert = new bootstrap.Alert(alertElement);
+        if (window.bootstrap && window.bootstrap.Alert) {
+            const bsAlert = new window.bootstrap.Alert(alertElement);
             bsAlert.close();
         } else {
             alertElement.classList.remove('show');
@@ -97,7 +95,6 @@ class MessageUtility {
         }
     }
 
-    // Clears all alert messages.
     clearAllMessages() {
         const container = this.getContainer();
         if (container) {
@@ -106,22 +103,18 @@ class MessageUtility {
         }
     }
 
-    // Shorthand for displaying a success message.
     success(message, options = {}) {
         return this.displayMessage(message, 'success', options);
     }
 
-    // Shorthand for displaying an info message.
     info(message, options = {}) {
         return this.displayMessage(message, 'info', options);
     }
 
-    // Shorthand for displaying a warning message.
     warning(message, options = {}) {
         return this.displayMessage(message, 'warning', options);
     }
 
-    // Shorthand for displaying an error message.
     error(message, options = {}) {
         return this.displayMessage(message, 'error', options);
     }
@@ -130,10 +123,11 @@ class MessageUtility {
 // Global instance.
 window.messageUtil = new MessageUtility();
 
-// Expose legacy API.
+// Legacy API for backward compatibility
 window.displayMessage = (message, type) => window.messageUtil.displayMessage(message, type);
+
 /**
- * CSRF token management for securing XHR/fetch requests
+ * CSRF token handling for secure XHR/fetch requests
  */
 class CSRFUtility {
     constructor() {
@@ -141,7 +135,7 @@ class CSRFUtility {
     }
 
     /**
-     * Retrieves CSRF token from cookie, form input, or meta tag
+     * Retrieves CSRF token from available sources (cookie, form input, meta tag)
      */
     getCSRFToken() {
         const token = this.getCookie('csrftoken');
@@ -157,7 +151,7 @@ class CSRFUtility {
     }
     
     /**
-     * Parses document cookies to find specified value
+     * Extracts cookie value by name
      */
     getCookie(name) {
         let cookieValue = null;
@@ -175,12 +169,12 @@ class CSRFUtility {
     }
     
     /**
-     * Injects CSRF tokens into non-safe HTTP methods
+     * Automatically adds CSRF tokens to non-safe HTTP methods
      */
     initCSRF() {
-        // Add CSRF headers to jQuery AJAX requests
+        // Integrate with jQuery AJAX if present
         if (window.jQuery) {
-            jQuery(document).ajaxSend((e, xhr, settings) => {
+            window.jQuery(document).ajaxSend((e, xhr, settings) => {
                 if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)) {
                     const token = this.getCSRFToken();
                     if (token) xhr.setRequestHeader("X-CSRFToken", token);
@@ -188,7 +182,7 @@ class CSRFUtility {
             });
         }
         
-        // Intercept fetch API to add CSRF headers
+        // Patch fetch API for automatic CSRF inclusion
         const originalFetch = window.fetch;
         window.fetch = (url, options = {}) => {
             if (options.method && 
@@ -207,14 +201,13 @@ class CSRFUtility {
     }
 }
 
-// Prevent duplicate initialization.
+// One-time initialization
 if (!window.messageUtilityInitialized) {
     document.addEventListener('DOMContentLoaded', function() {
         try {
-            // Initialize CSRF protection
             window.csrfUtil = new CSRFUtility();
             
-            // Handle duplicate alerts
+            // Remove duplicate alerts
             const seenMessages = new Set();
             const alerts = document.querySelectorAll('.alert');
 
@@ -229,7 +222,7 @@ if (!window.messageUtilityInitialized) {
                 }
             });
 
-            // Auto-dismiss alerts.
+            // Auto-dismiss existing alerts
             setTimeout(function() {
                 const alerts = document.querySelectorAll('.alert');
                 alerts.forEach(function(alert) {
