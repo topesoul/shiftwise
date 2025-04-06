@@ -97,32 +97,33 @@
 
 /* Styles for dark mode */
 .dark-mode #message-container .alert {
-    background-color: #2c2c2c;
+    background-color: #2a2a2a;
     color: #ffffff;
+    border: 1px solid #444444;
 }
 
 .dark-mode #message-container .alert-success {
     border-left-color: var(--success-color);
-    background-color: rgba(var(--success-color-rgb, 46, 204, 113), 0.2);
-    color: var(--light-color);
+    background-color: #1e4d33;
+    color: #ffffff;
 }
 
 .dark-mode #message-container .alert-info {
     border-left-color: var(--info-color);
-    background-color: rgba(var(--info-color-rgb, 23, 162, 184), 0.2);
-    color: var(--light-color);
+    background-color: #1e4d66;
+    color: #ffffff;
 }
 
 .dark-mode #message-container .alert-warning {
     border-left-color: var(--warning-color);
-    background-color: rgba(var(--warning-color-rgb, 243, 156, 18), 0.2);
-    color: var(--light-color);
+    background-color: #665e1e;
+    color: #ffffff;
 }
 
 .dark-mode #message-container .alert-danger {
     border-left-color: var(--danger-color);
-    background-color: rgba(var(--danger-color-rgb, 231, 76, 60), 0.2);
-    color: var(--light-color);
+    background-color: #66201e;
+    color: #ffffff;
 }
 
 .dark-mode #message-container .alert .close {
