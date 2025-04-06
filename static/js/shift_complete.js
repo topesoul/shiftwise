@@ -1,3 +1,4 @@
+/* global SignaturePad */
 // /workspace/shiftwise/static/js/shift_complete.js
 
 document.addEventListener('DOMContentLoaded', function() {
