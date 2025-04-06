@@ -18,6 +18,9 @@
     <meta name="description" content="{% block meta_description %}ShiftWise App - Efficiently manage your shifts and schedules for healthcare professionals.{% endblock %}">
     <meta name="keywords" content="ShiftWise, shift management, healthcare staffing, schedule, productivity">
     
+    <!-- Security Meta Tags -->
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    
     <!-- Open Graph / Facebook Meta Tags -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.build_absolute_uri }}">
