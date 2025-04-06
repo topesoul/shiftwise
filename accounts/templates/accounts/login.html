@@ -9,7 +9,6 @@
 {% block title %}Login{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
     <h2>Login</h2>
     <form method="post" action="{% url 'accounts:login_view' %}">
         {% csrf_token %}
