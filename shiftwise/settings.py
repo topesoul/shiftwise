@@ -296,8 +296,15 @@ STRIPE_PRICE_IDS = {
 # CSRF
 # -----------------------------------------------------------------------------
 
+# Configure CSRF trusted origins from environment variable
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if origin.strip()]
+
+# Security-focused CSRF configuration
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = True
+CSRF_USE_SESSIONS = True
+CSRF_COOKIE_SAMESITE = 'Lax'
 
 # -----------------------------------------------------------------------------
 # Logging
