@@ -130,12 +130,9 @@
                 <div class="alert alert-warning">
                     <i class="fas fa-exclamation-triangle"></i> Canceling your subscription will remove access to premium features at the end of your current billing period.
                 </div>
-                <form action="{% url 'subscriptions:cancel_subscription' %}" method="post">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger btn-block" onclick="return confirm('Are you sure you want to cancel your subscription? This action cannot be undone.');">
-                        <i class="fas fa-trash-alt"></i> Cancel Subscription
-                    </button>
-                </form>
+                <a href="{% url 'subscriptions:cancel_subscription' %}" class="btn btn-danger btn-block">
+                    <i class="fas fa-trash-alt"></i> Cancel Subscription
+                </a>
             </div>
         </div>
     {% else %}
