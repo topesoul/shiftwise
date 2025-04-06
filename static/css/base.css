@@ -192,8 +192,9 @@ a:hover {
 
 /* Alerts */
 .dark-mode .alert {
-    background-color: #333333;
+    background-color: #2a2a2a;
     color: #ffffff;
+    border: 1px solid #444444;
 }
 
 .dark-mode .alert .close {
