@@ -1,6 +1,9 @@
 // /static/js/profile.js
 
-// Profile page enhancements for form validation and address functionality
+/**
+ * Profile management - Form validation and Google Places address integration
+ * Handles profile form validation, error display, and address autocomplete
+ */
 document.addEventListener('DOMContentLoaded', function() {
     const profileModal = document.getElementById('updateProfileModal');
     const profileForm = profileModal ? profileModal.querySelector('form') : null;
@@ -8,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     console.log("Profile.js loaded");
 
-    // Display modal if server-side validation detected errors
+    // Force modal to remain open if server validation errors exist
     if (profileData && profileData.dataset.hasErrors === 'true') {
         if (typeof $ !== 'undefined') {
             $('#updateProfileModal').modal({
@@ -21,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (profileForm) {
         profileForm.addEventListener('submit', function(event) {
-            // Block invalid form submission and focus first error
+            // Prevent invalid form submission and focus first error field
             if (!profileForm.checkValidity() || !validateProfileForm(profileForm)) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -38,7 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Real-time field validation
+        // Attach blur/change validators to all form fields
         profileForm.querySelectorAll('input, select, textarea').forEach(function(field) {
             field.addEventListener('blur', function() {
                 validateField(field);
@@ -50,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initialize Google Maps address autocomplete when modal opens
+    // Google Maps address integration
     if (profileModal && typeof $ !== 'undefined') {
         $(profileModal).on('shown.bs.modal', function() {
             setTimeout(function() {
@@ -60,19 +63,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     for (let i = 0; i < addressFields.length; i++) {
                         const field = addressFields[i];
                         
-                        // Try using global autocomplete functions first
+                        // Try global autocomplete methods first with fallback to local implementation
                         if (typeof window.setupAutocomplete === 'function') {
                             window.setupAutocomplete(field);
                         } 
                         else if (typeof window.setupAddressField === 'function') {
                             window.setupAddressField(field);
                         }
-                        // Fallback implementation if global functions unavailable
                         else {
                             try {
-                                // Skip if already initialized
+                                // Skip already initialized fields
                                 if (!field._hasAutocomplete) {
-                                    const autocomplete = new google.maps.places.Autocomplete(field, {
+                                    const autocomplete = new window.google.maps.places.Autocomplete(field, {
                                         types: ['address'],
                                         componentRestrictions: { country: ['gb'] },
                                         fields: ['address_components', 'geometry', 'formatted_address']
@@ -87,11 +89,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                         const form = field.closest('form');
                                         if (!form) return;
                                         
-                                        // Populate form fields with selected address
+                                        // Extract address components into form fields
                                         const address1 = form.querySelector('#id_address_line1, [name="address_line1"]');
                                         const city = form.querySelector('#id_city, [name="city"]');
-                                        const county = form.querySelector('#id_county, [name="county"]');
-                                        const postcode = form.querySelector('#id_postcode, [name="postcode"]');
                                         
                                         if (address1) {
                                             const parts = place.formatted_address.split(',');
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         }
                                         
                                         if (city) {
-                                            // Extract city from components or default to London
+                                            // Extract city from components with priority order
                                             let cityValue = '';
                                             
                                             for (const component of place.address_components) {
@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Validates individual form field based on type and requirements
+     * Field-level validation with specialized rules for UK-specific formats
      */
     function validateField(field) {
         let isValid = true;
@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Validates entire form and adds error summary if needed
+     * Form-level validation with error summary display
      */
     function validateProfileForm(form) {
         let isValid = true;
@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
             isValid = isValid && fieldValid;
         }
 
-        // Add or remove validation summary message
+        // Manage validation summary for the form
         let existingSummary = form.querySelector('.validation-summary');
         if (!isValid) {
             if (!existingSummary) {
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Displays inline error for a form field
+     * Creates or updates field error display
      */
     function showFieldError(field, message) {
         field.classList.add('is-invalid');
