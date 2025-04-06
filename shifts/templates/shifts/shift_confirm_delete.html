@@ -7,19 +7,17 @@
 {% block title %}Delete Shift - {{ object.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="card">
-        <div class="card-header bg-danger text-white">
-            <h4>Delete Shift: {{ object.name }}</h4>
-        </div>
-        <div class="card-body">
-            <p>Are you sure you want to delete the shift "<strong>{{ object.name }}</strong>"?</p>
-            <form method="post">
-                {% csrf_token %}
-                <a href="{% url 'shifts:shift_detail' object.pk %}" class="btn btn-secondary">Cancel</a>
-                <button type="submit" class="btn btn-danger">Delete Shift</button>
-            </form>
-        </div>
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h4>Delete Shift: {{ object.name }}</h4>
+    </div>
+    <div class="card-body">
+        <p>Are you sure you want to delete the shift "<strong>{{ object.name }}</strong>"?</p>
+        <form method="post">
+            {% csrf_token %}
+            <a href="{% url 'shifts:shift_detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-danger">Delete Shift</button>
+        </form>
     </div>
 </div>
 {% endblock %}
