@@ -2,12 +2,14 @@
 
 import logging
 from io import BytesIO
-from django.db import transaction
+
+from PIL import Image, ImageOps
+
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from PIL import Image, ImageOps
 
 from .models import Profile
 
@@ -37,7 +39,9 @@ def handle_profile_picture_resize(sender, instance, **kwargs):
         try:
             # Verify file exists in storage
             if not instance.profile_picture.storage.exists(instance.profile_picture.name):
-                logger.error(f"Profile picture file does not exist: {instance.profile_picture.name}")
+                logger.error(
+                    f"Profile picture file does not exist: {instance.profile_picture.name}"
+                )
                 with transaction.atomic():
                     Profile.objects.filter(pk=instance.pk).update(profile_picture=None)
                 logger.info(f"Reset missing profile picture for user {instance.user.username}")
@@ -62,10 +66,10 @@ def handle_profile_picture_resize(sender, instance, **kwargs):
             # Compress if necessary
             quality = 85
             max_size_bytes = MAX_IMAGE_SIZE_MB * 1024 * 1024
-            
+
             img_temp = BytesIO()
             img.save(img_temp, format="JPEG", quality=quality)
-            
+
             while img_temp.tell() > max_size_bytes and quality > 10:
                 img_temp = BytesIO()
                 img.save(img_temp, format="JPEG", quality=quality)
@@ -79,7 +83,7 @@ def handle_profile_picture_resize(sender, instance, **kwargs):
             img_io = BytesIO()
             img_format = img.format if img.format else "JPEG"
             img.save(img_io, format=img_format, quality=quality)
-            
+
             with transaction.atomic():
                 new_filename = f"processed_{instance.profile_picture.name.split('/')[-1]}"
                 instance.profile_picture.save(
@@ -87,17 +91,23 @@ def handle_profile_picture_resize(sender, instance, **kwargs):
                     ContentFile(img_io.getvalue()),
                     save=False,
                 )
-                Profile.objects.filter(pk=instance.pk).update(profile_picture=instance.profile_picture.name)
-                
+                Profile.objects.filter(pk=instance.pk).update(
+                    profile_picture=instance.profile_picture.name
+                )
+
             logger.info(f"Profile picture resized for user {instance.user.username}.")
         except Exception as e:
             logger.error(f"Error resizing profile picture for {instance.user.username}: {e}")
             try:
                 with transaction.atomic():
                     Profile.objects.filter(pk=instance.pk).update(profile_picture=None)
-                logger.info(f"Reset profile picture due to processing error for user {instance.user.username}")
+                logger.info(
+                    f"Reset profile picture due to processing error for user {instance.user.username}"
+                )
             except Exception as inner_e:
-                logger.error(f"Failed to reset profile picture for {instance.user.username}: {inner_e}")
+                logger.error(
+                    f"Failed to reset profile picture for {instance.user.username}: {inner_e}"
+                )
 
 
 @receiver(pre_save, sender=Profile)
@@ -117,13 +127,17 @@ def delete_old_profile_picture(sender, instance, **kwargs):
     if old_picture and old_picture != new_picture:
         try:
             # Preserve default profile image
-            if 'default_profile.png' not in old_picture.name:
+            if "default_profile.png" not in old_picture.name:
                 if old_picture.storage.exists(old_picture.name):
                     old_picture.delete(save=False)
                     logger.info(f"Deleted old profile picture for user {instance.user.username}.")
                 else:
-                    logger.warning(f"Attempted to delete non-existent profile picture for user {instance.user.username}")
+                    logger.warning(
+                        f"Attempted to delete non-existent profile picture for user {instance.user.username}"
+                    )
             else:
-                logger.info(f"Skipped deletion of default profile picture for user {instance.user.username}.")
+                logger.info(
+                    f"Skipped deletion of default profile picture for user {instance.user.username}."
+                )
         except Exception as e:
             logger.error(f"Error deleting old profile picture for {instance.user.username}: {e}")

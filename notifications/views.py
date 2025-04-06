@@ -32,9 +32,7 @@ class NotificationListView(
     paginate_by = 20
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user).order_by(
-            "-created_at"
-        )
+        return Notification.objects.filter(user=self.request.user).order_by("-created_at")
 
 
 class MarkNotificationReadView(LoginRequiredMixin, FeatureRequiredMixin, View):
@@ -46,14 +44,10 @@ class MarkNotificationReadView(LoginRequiredMixin, FeatureRequiredMixin, View):
 
     @method_decorator(csrf_protect)
     def post(self, request, notification_id, *args, **kwargs):
-        notification = get_object_or_404(
-            Notification, id=notification_id, user=request.user
-        )
+        notification = get_object_or_404(Notification, id=notification_id, user=request.user)
         notification.read = True
         notification.save()
-        logger.info(
-            f"Notification ID {notification.id} marked as read by {request.user.username}."
-        )
+        logger.info(f"Notification ID {notification.id} marked as read by {request.user.username}.")
         return JsonResponse({"success": True})
 
 
@@ -61,15 +55,15 @@ class MarkAllNotificationsReadView(LoginRequiredMixin, FeatureRequiredMixin, Vie
     """
     Marks all notifications as read for the current user.
     """
-    
+
     required_features = ["notifications_enabled"]
-    
+
     @method_decorator(csrf_protect)
     def post(self, request, *args, **kwargs):
         count = Notification.objects.filter(user=request.user, read=False).update(read=True)
         logger.info(f"Marked {count} notifications as read for user {request.user.username}")
-        
+
         if count > 0:
             messages.success(request, f"Marked {count} notifications as read.")
-        
+
         return redirect("notifications:notification_list")

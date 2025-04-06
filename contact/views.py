@@ -23,13 +23,17 @@ def contact_view(request):
                 # Debug mode: log instead of sending actual emails
                 if settings.DEBUG:
                     import logging
+
                     logger = logging.getLogger(__name__)
                     logger.info(f"Contact form submission (DEBUG mode): {subject}")
                     logger.info(f"From: {email}")
                     logger.info(f"Message: {message}")
-                    messages.success(request, "Your message has been received! (In debug mode, emails are not actually sent)")
+                    messages.success(
+                        request,
+                        "Your message has been received! (In debug mode, emails are not actually sent)",
+                    )
                     return redirect("contact:contact")
-                
+
                 # Production: send to configured admin emails
                 send_mail(
                     subject,
@@ -42,15 +46,18 @@ def contact_view(request):
                 return redirect("contact:contact")
             except Exception as e:
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.error(f"Email sending error: {str(e)}")
-                
+
                 # Show detailed errors in debug, generic message in production
                 if settings.DEBUG:
                     error_message = f"An error occurred while sending your message: {str(e)}"
                 else:
-                    error_message = "An error occurred while sending your message. Our team has been notified."
-                    
+                    error_message = (
+                        "An error occurred while sending your message. Our team has been notified."
+                    )
+
                 messages.error(request, error_message)
     else:
         form = ContactForm()

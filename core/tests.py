@@ -10,25 +10,22 @@ from .utils import send_notification_email
 
 class EmailNotificationTests(TestCase):
     def test_send_notification_email_success(self):
-        context = {
-            "user": {"username": "testuser"},
-            "message": "This is a test message."
-        }
-        
+        context = {"user": {"username": "testuser"}, "message": "This is a test message."}
+
         template_content = "Hello {{ user.username }}, {{ message }}"
-        
+
         # Create a temporary template in memory for testing
-        with self.settings(TEMPLATE_DIRS=('/tmp/',)):
-            with open('/tmp/test_email_template.txt', 'w') as f:
+        with self.settings(TEMPLATE_DIRS=("/tmp/",)):
+            with open("/tmp/test_email_template.txt", "w") as f:
                 f.write(template_content)
-            
+
             result = send_notification_email(
                 to_email="testuser@example.com",
                 subject="Test Subject",
                 template_path="test_email_template.txt",
-                context=context
+                context=context,
             )
-            
+
             self.assertTrue(result)
             self.assertEqual(len(mail.outbox), 1)
             self.assertEqual(mail.outbox[0].subject, "Test Subject")
@@ -38,18 +35,15 @@ class EmailNotificationTests(TestCase):
             self.assertIn("This is a test message", mail.outbox[0].body)
 
     def test_send_notification_email_failure(self):
-        context = {
-            "user": {"username": "testuser"},
-            "message": "This is a test message."
-        }
-        
+        context = {"user": {"username": "testuser"}, "message": "This is a test message."}
+
         # Test with invalid template path
         result = send_notification_email(
             to_email="testuser@example.com",
             subject="Test Subject",
             template_path="non_existent_template.txt",
-            context=context
+            context=context,
         )
-        
+
         self.assertFalse(result)
         self.assertEqual(len(mail.outbox), 0)

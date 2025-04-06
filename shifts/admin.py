@@ -167,9 +167,7 @@ class ShiftAdmin(admin.ModelAdmin):
         """
         Computes the total hours for the shift by multiplying duration with confirmed assignments count.
         """
-        assignment_count = obj.assignments.filter(
-            status=ShiftAssignment.CONFIRMED
-        ).count()
+        assignment_count = obj.assignments.filter(status=ShiftAssignment.CONFIRMED).count()
         if obj.duration is None:
             return "0"
         total = obj.duration * assignment_count
@@ -180,9 +178,7 @@ class ShiftAdmin(admin.ModelAdmin):
         """
         Computes the total pay for the shift by multiplying duration, hourly_rate, and confirmed assignments count.
         """
-        assignment_count = obj.assignments.filter(
-            status=ShiftAssignment.CONFIRMED
-        ).count()
+        assignment_count = obj.assignments.filter(status=ShiftAssignment.CONFIRMED).count()
 
         if obj.duration is None:
             return "£0.00"
@@ -209,9 +205,7 @@ class ShiftAdmin(admin.ModelAdmin):
         Optimizes queryset performance by selecting related fields.
         """
         queryset = super().get_queryset(request)
-        queryset = queryset.select_related("agency").prefetch_related(
-            "assignments__worker"
-        )
+        queryset = queryset.select_related("agency").prefetch_related("assignments__worker")
         return queryset
 
 
@@ -276,25 +270,19 @@ class ShiftAssignmentAdmin(admin.ModelAdmin):
     def mark_attended(self, request, queryset):
         updated = queryset.update(attendance_status="attended")
         self.message_user(request, f"{updated} shift assignments marked as Attended.")
-        logger.info(
-            f"{updated} shift assignments marked as Attended by {request.user.username}."
-        )
+        logger.info(f"{updated} shift assignments marked as Attended by {request.user.username}.")
 
     @admin.action(description="Mark selected assignments as Late")
     def mark_late(self, request, queryset):
         updated = queryset.update(attendance_status="late")
         self.message_user(request, f"{updated} shift assignments marked as Late.")
-        logger.info(
-            f"{updated} shift assignments marked as Late by {request.user.username}."
-        )
+        logger.info(f"{updated} shift assignments marked as Late by {request.user.username}.")
 
     @admin.action(description="Mark selected assignments as No Show")
     def mark_no_show(self, request, queryset):
         updated = queryset.update(attendance_status="no_show")
         self.message_user(request, f"{updated} shift assignments marked as No Show.")
-        logger.info(
-            f"{updated} shift assignments marked as No Show by {request.user.username}."
-        )
+        logger.info(f"{updated} shift assignments marked as No Show by {request.user.username}.")
 
     def get_queryset(self, request):
         """
@@ -353,33 +341,25 @@ class StaffPerformanceAdmin(admin.ModelAdmin):
     def mark_excellent(self, request, queryset):
         updated = queryset.update(status="Excellent")
         self.message_user(request, f"{updated} staff performances marked as Excellent.")
-        logger.info(
-            f"{updated} staff performances marked as Excellent by {request.user.username}."
-        )
+        logger.info(f"{updated} staff performances marked as Excellent by {request.user.username}.")
 
     @admin.action(description="Mark selected performances as Good")
     def mark_good(self, request, queryset):
         updated = queryset.update(status="Good")
         self.message_user(request, f"{updated} staff performances marked as Good.")
-        logger.info(
-            f"{updated} staff performances marked as Good by {request.user.username}."
-        )
+        logger.info(f"{updated} staff performances marked as Good by {request.user.username}.")
 
     @admin.action(description="Mark selected performances as Average")
     def mark_average(self, request, queryset):
         updated = queryset.update(status="Average")
         self.message_user(request, f"{updated} staff performances marked as Average.")
-        logger.info(
-            f"{updated} staff performances marked as Average by {request.user.username}."
-        )
+        logger.info(f"{updated} staff performances marked as Average by {request.user.username}.")
 
     @admin.action(description="Mark selected performances as Poor")
     def mark_poor(self, request, queryset):
         updated = queryset.update(status="Poor")
         self.message_user(request, f"{updated} staff performances marked as Poor.")
-        logger.info(
-            f"{updated} staff performances marked as Poor by {request.user.username}."
-        )
+        logger.info(f"{updated} staff performances marked as Poor by {request.user.username}.")
 
     def get_queryset(self, request):
         """

@@ -1,9 +1,11 @@
 # /workspace/shiftwise/core/views.py
 
 import logging
+
 import requests
-from django.http import HttpResponse, JsonResponse
+
 from django.conf import settings
+from django.http import HttpResponse, JsonResponse
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +19,7 @@ def google_maps_proxy(request):
     params["key"] = api_key
 
     try:
-        response = requests.get(
-            "https://maps.googleapis.com/maps/api/js", params=params
-        )
+        response = requests.get("https://maps.googleapis.com/maps/api/js", params=params)
         if response.status_code == 200:
             # Pass the JavaScript content back to the client
             return HttpResponse(response.content, content_type="application/javascript")

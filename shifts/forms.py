@@ -4,12 +4,13 @@ import re
 
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Column, Field, Layout, Row
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.validators import EmailValidator, MinLengthValidator
 from django.utils import timezone
 from django.utils.html import strip_tags
-from django.core.validators import EmailValidator, MinLengthValidator
 
 from accounts.models import Agency
 from core.forms import AddressFormMixin
@@ -188,24 +189,24 @@ class ShiftForm(AddressFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super(ShiftForm, self).__init__(*args, **kwargs)
-        
+
         # Add read-only shift code field for existing shifts
         if self.instance.pk and self.instance.shift_code:
-            self.fields['shift_code_display'] = forms.CharField(
+            self.fields["shift_code_display"] = forms.CharField(
                 required=False,
                 disabled=True,
                 initial=self.instance.shift_code,
                 label="Shift Code",
-                help_text="System-generated unique identifier for this shift."
+                help_text="System-generated unique identifier for this shift.",
             )
-        
+
         # Initialize FormHelper for crispy_forms
         self.helper = FormHelper()
         self.helper.form_method = "post"
-        
+
         # Build layout based on whether this is a new or existing shift
         layout_fields = []
-        
+
         if self.instance.pk and self.instance.shift_code:
             layout_fields.append(
                 Row(
@@ -219,43 +220,45 @@ class ShiftForm(AddressFormMixin, forms.ModelForm):
                     Column("name", css_class="form-group col-md-12 mb-0"),
                 )
             )
-            
-        layout_fields.extend([
-            Row(
-                Column("shift_date", css_class="form-group col-md-6 mb-0"),
-                Column("end_date", css_class="form-group col-md-6 mb-0"),
-            ),
-            Row(
-                Column("start_time", css_class="form-group col-md-6 mb-0"),
-                Column("end_time", css_class="form-group col-md-6 mb-0"),
-            ),
-            Row(
-                Column("is_overnight", css_class="form-group col-md-6 mb-0"),
-                Column("capacity", css_class="form-group col-md-6 mb-0"),
-            ),
-            Row(
-                Column("hourly_rate", css_class="form-group col-md-6 mb-0"),
-                Column("shift_type", css_class="form-group col-md-6 mb-0"),
-            ),
-            Row(
-                Column("shift_role", css_class="form-group col-md-6 mb-0"),
-                Column("agency", css_class="form-group col-md-6 mb-0"),
-            ),
-            "notes",
-            "is_active",
-            "address_line1",
-            "address_line2",
-            Row(
-                Column("city", css_class="form-group col-md-4 mb-0"),
-                Column("county", css_class="form-group col-md-4 mb-0"),
-                Column("postcode", css_class="form-group col-md-4 mb-0"),
-            ),
-            "country",
-            # Hidden fields
-            Field("latitude"),
-            Field("longitude"),
-        ])
-        
+
+        layout_fields.extend(
+            [
+                Row(
+                    Column("shift_date", css_class="form-group col-md-6 mb-0"),
+                    Column("end_date", css_class="form-group col-md-6 mb-0"),
+                ),
+                Row(
+                    Column("start_time", css_class="form-group col-md-6 mb-0"),
+                    Column("end_time", css_class="form-group col-md-6 mb-0"),
+                ),
+                Row(
+                    Column("is_overnight", css_class="form-group col-md-6 mb-0"),
+                    Column("capacity", css_class="form-group col-md-6 mb-0"),
+                ),
+                Row(
+                    Column("hourly_rate", css_class="form-group col-md-6 mb-0"),
+                    Column("shift_type", css_class="form-group col-md-6 mb-0"),
+                ),
+                Row(
+                    Column("shift_role", css_class="form-group col-md-6 mb-0"),
+                    Column("agency", css_class="form-group col-md-6 mb-0"),
+                ),
+                "notes",
+                "is_active",
+                "address_line1",
+                "address_line2",
+                Row(
+                    Column("city", css_class="form-group col-md-4 mb-0"),
+                    Column("county", css_class="form-group col-md-4 mb-0"),
+                    Column("postcode", css_class="form-group col-md-4 mb-0"),
+                ),
+                "country",
+                # Hidden fields
+                Field("latitude"),
+                Field("longitude"),
+            ]
+        )
+
         self.helper.layout = Layout(*layout_fields)
 
         # Handle agency and active status fields based on user permissions
@@ -279,20 +282,20 @@ class ShiftForm(AddressFormMixin, forms.ModelForm):
         if value:
             raise forms.ValidationError("Spam check failed.")
         return value
-        
+
     def clean_notes(self):
         """Prevent XSS in notes field"""
-        notes = self.cleaned_data.get('notes', '')
+        notes = self.cleaned_data.get("notes", "")
         return strip_tags(notes)
 
     def clean(self):
         cleaned_data = super().clean()
-        
+
         # Permission verification
-        if self.user and not (self.user.is_superuser or self.user.has_perm('shifts.change_shift')):
+        if self.user and not (self.user.is_superuser or self.user.has_perm("shifts.change_shift")):
             if self.instance.pk:
                 raise ValidationError("You don't have permission to modify this shift")
-        
+
         # Validate shift timing and capacity
         shift_date = cleaned_data.get("shift_date")
         end_date = cleaned_data.get("end_date")
@@ -426,9 +429,7 @@ class ShiftFilterForm(forms.Form):
     )
     date_to = forms.DateField(
         required=False,
-        widget=forms.DateInput(
-            attrs={"type": "date", "class": "form-control", "id": "id_date_to"}
-        ),
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control", "id": "id_date_to"}),
         label="Date To",
     )
     status = forms.ChoiceField(
@@ -506,20 +507,20 @@ class ShiftFilterForm(forms.Form):
         if value:
             raise ValidationError("Spam check failed.")
         return value
-        
+
     def clean_search(self):
         """XSS prevention"""
-        search = self.cleaned_data.get('search', '')
+        search = self.cleaned_data.get("search", "")
         return strip_tags(search)
-        
+
     def clean_shift_code(self):
         """Sanitize shift code input"""
-        shift_code = self.cleaned_data.get('shift_code', '')
+        shift_code = self.cleaned_data.get("shift_code", "")
         return strip_tags(shift_code)
-        
+
     def clean_address(self):
         """Sanitize address input"""
-        address = self.cleaned_data.get('address', '')
+        address = self.cleaned_data.get("address", "")
         return strip_tags(address)
 
 
@@ -576,7 +577,7 @@ class ShiftCompletionForm(forms.Form):
         if value:
             raise ValidationError("Spam check failed.")
         return value
-    
+
     def clean_signature(self):
         """Validate signature data URL format"""
         signature = self.cleaned_data.get("signature", "")
@@ -604,15 +605,10 @@ class ShiftCompletionForm(forms.Form):
         if (latitude is not None and longitude is None) or (
             latitude is None and longitude is not None
         ):
-            raise ValidationError(
-                "Both latitude and longitude must be provided together."
-            )
+            raise ValidationError("Both latitude and longitude must be provided together.")
 
         # Status validation
-        if (
-            attendance_status
-            not in dict(ShiftAssignment.ATTENDANCE_STATUS_CHOICES).keys()
-        ):
+        if attendance_status not in dict(ShiftAssignment.ATTENDANCE_STATUS_CHOICES).keys():
             raise ValidationError("Invalid attendance status selected.")
 
         return cleaned_data
@@ -622,7 +618,7 @@ class StaffPerformanceForm(forms.ModelForm):
     """
     Records worker performance metrics and supervisor feedback after shift completion.
     """
-    
+
     class Meta:
         model = StaffPerformance
         fields = ["wellness_score", "performance_rating", "status", "comments"]
@@ -650,10 +646,10 @@ class StaffPerformanceForm(forms.ModelForm):
         if rating < 0 or rating > 5:
             raise ValidationError("Performance rating must be between 0 and 5.")
         return rating
-        
+
     def clean_comments(self):
         """XSS prevention"""
-        comments = self.cleaned_data.get('comments', '')
+        comments = self.cleaned_data.get("comments", "")
         return strip_tags(comments)
 
 
@@ -717,8 +713,9 @@ class AssignWorkerForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         # Permission check
-        if self.user and not (self.user.is_superuser or 
-                              self.user.has_perm('shifts.add_shiftassignment')):
+        if self.user and not (
+            self.user.is_superuser or self.user.has_perm("shifts.add_shiftassignment")
+        ):
             raise ValidationError("You don't have permission to assign workers to shifts")
         return cleaned_data
 
@@ -734,10 +731,8 @@ class UnassignWorkerForm(forms.Form):
         label="Leave empty",
     )
 
-    worker_id = forms.IntegerField(
-        widget=forms.HiddenInput(attrs={"id": "id_worker_id"})
-    )
-    
+    worker_id = forms.IntegerField(widget=forms.HiddenInput(attrs={"id": "id_worker_id"}))
+
     def clean_honeypot(self):
         """Spam prevention"""
         value = self.cleaned_data.get("honeypot", "")

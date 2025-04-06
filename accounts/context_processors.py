@@ -19,19 +19,13 @@ def user_roles_and_subscriptions(request):
     user = request.user
     is_superuser = user.is_superuser if user.is_authenticated else False
     is_agency_owner = (
-        user.groups.filter(name="Agency Owners").exists()
-        if user.is_authenticated
-        else False
+        user.groups.filter(name="Agency Owners").exists() if user.is_authenticated else False
     )
     is_agency_manager = (
-        user.groups.filter(name="Agency Managers").exists()
-        if user.is_authenticated
-        else False
+        user.groups.filter(name="Agency Managers").exists() if user.is_authenticated else False
     )
     is_agency_staff = (
-        user.groups.filter(name="Agency Staff").exists()
-        if user.is_authenticated
-        else False
+        user.groups.filter(name="Agency Staff").exists() if user.is_authenticated else False
     )
     has_active_subscription = False
     available_plans = []
@@ -67,9 +61,7 @@ def user_roles_and_subscriptions(request):
     for plan_name, plans in plan_dict.items():
         # Ensure at least one plan exists
         if not plans.get("monthly_plan") and not plans.get("yearly_plan"):
-            logger.warning(
-                f"No monthly or yearly plan found for {plan_name}. Skipping."
-            )
+            logger.warning(f"No monthly or yearly plan found for {plan_name}. Skipping.")
             continue
 
         # Use the description from either monthly or yearly plan
@@ -100,9 +92,7 @@ def user_roles_and_subscriptions(request):
             else:
                 dashboard_url = reverse("accounts:profile")
         except Exception as e:
-            logger.exception(
-                f"Error determining dashboard_url for user {user.username}: {e}"
-            )
+            logger.exception(f"Error determining dashboard_url for user {user.username}: {e}")
             dashboard_url = reverse("accounts:profile")
 
         try:
@@ -131,10 +121,7 @@ def user_roles_and_subscriptions(request):
 
                             # Implement Usage Limit Check based on number of shifts
                             current_shift_count = agency.shifts.count()
-                            if (
-                                subscription.plan.shift_management
-                                and subscription.plan.shift_limit
-                            ):
+                            if subscription.plan.shift_management and subscription.plan.shift_limit:
                                 if current_shift_count >= subscription.plan.shift_limit:
                                     needs_upgrade = True
                                     logger.debug(
@@ -143,9 +130,7 @@ def user_roles_and_subscriptions(request):
             else:
                 if is_superuser:
                     # Superusers may not have profiles; skip agency-related logic
-                    logger.info(
-                        f"Superuser {user.username} does not have a profile or agency."
-                    )
+                    logger.info(f"Superuser {user.username} does not have a profile or agency.")
                 else:
                     logger.warning(
                         f"User {user.username} does not have an associated agency or profile."
@@ -153,16 +138,12 @@ def user_roles_and_subscriptions(request):
         except ObjectDoesNotExist:
             # User does not have a profile or agency
             if not is_superuser:
-                logger.warning(
-                    f"User {user.username} does not have a profile or agency."
-                )
+                logger.warning(f"User {user.username} does not have a profile or agency.")
         except Exception as e:
             logger.exception(f"Error in context processor: {e}")
 
         # Fetch unread notifications for the user
-        notifications = Notification.objects.filter(user=user, read=False).order_by(
-            "-created_at"
-        )
+        notifications = Notification.objects.filter(user=user, read=False).order_by("-created_at")
         unread_notifications_count = notifications.count()
 
     return {

@@ -85,7 +85,9 @@ class Shift(TimestampedModel):
     shift_date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
-    end_date = models.DateField(help_text="Specify the date when the shift ends.")
+    end_date = models.DateField(
+        help_text="Specify the date when the shift ends."
+    )
     is_overnight = models.BooleanField(
         default=False, help_text="Indicates if shift spans into the next day."
     )
@@ -108,7 +110,7 @@ class Shift(TimestampedModel):
         max_length=100,
         choices=ROLE_CHOICES,
         default="Staff",
-        help_text="Role required for this shift."
+        help_text="Role required for this shift.",
     )
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2)
     notes = models.TextField(blank=True, null=True)
@@ -118,12 +120,14 @@ class Shift(TimestampedModel):
     is_completed = models.BooleanField(default=False)
     completion_time = models.DateTimeField(null=True, blank=True)
     signature = models.ImageField(
-        upload_to="signatures/", null=True, blank=True, validators=[validate_image]
+        upload_to="signatures/",
+        null=True,
+        blank=True,
+        validators=[validate_image],
     )
     duration = models.FloatField(null=True, blank=True)
     is_active = models.BooleanField(
-        default=True,
-        help_text="Determines availability for assignments."
+        default=True, help_text="Determines availability for assignments."
     )
 
     class Meta:
@@ -152,8 +156,12 @@ class Shift(TimestampedModel):
         super().clean()
 
         # Check for prior field-level validation
-        form_validated_date = hasattr(self, '_date_validated') and self._date_validated
-        form_validated_end_date = hasattr(self, '_end_date_validated') and self._end_date_validated
+        form_validated_date = (
+            hasattr(self, "_date_validated") and self._date_validated
+        )
+        form_validated_end_date = (
+            hasattr(self, "_end_date_validated") and self._end_date_validated
+        )
 
         # Ensure shift date is not in the past unless skipping validation or already validated
         if not skip_date_validation and not form_validated_date:
@@ -163,18 +171,23 @@ class Shift(TimestampedModel):
         # Ensure all date and time fields are provided
         if not self.shift_date:
             raise ValidationError("Shift date must be provided.")
-        
+
         if not self.end_date:
             raise ValidationError("End date must be provided.")
-        
+
         if not self.start_time:
             raise ValidationError("Start time must be provided.")
-        
+
         if not self.end_time:
             raise ValidationError("End time must be provided.")
 
         # Ensure end date is not before shift date (unless already validated by form)
-        if not form_validated_end_date and self.end_date and self.shift_date and self.end_date < self.shift_date:
+        if (
+            not form_validated_end_date
+            and self.end_date
+            and self.shift_date
+            and self.end_date < self.shift_date
+        ):
             raise ValidationError("End date cannot be before shift date.")
 
         # Combine start and end datetime objects
@@ -216,21 +229,26 @@ class Shift(TimestampedModel):
             self.shift_code = self.generate_shift_code()
         elif not self.shift_code and not self.agency:
             import logging
+
             logger = logging.getLogger(__name__)
-            logger.warning("Shift saved without agency; shift_code generation skipped.")
+            logger.warning(
+                "Shift saved without agency; shift_code generation skipped."
+            )
 
         # Handle validation skipping options
         skip_validation = kwargs.pop("skip_validation", False)
         if not skip_validation:
             skip_date_validation = kwargs.pop("skip_date_validation", False)
             self.clean(skip_date_validation=skip_date_validation)
-            
+
         super().save(*args, **kwargs)
 
         # Ensure shift_code is generated if agency was assigned during save
         if not self.shift_code and self.agency:
             self.shift_code = self.generate_shift_code()
-            type(self).objects.filter(pk=self.pk).update(shift_code=self.shift_code)
+            type(self).objects.filter(pk=self.pk).update(
+                shift_code=self.shift_code
+            )
 
     def get_absolute_url(self):
         """URL for shift detail view"""
@@ -296,14 +314,18 @@ class ShiftAssignment(TimestampedModel):
         "Shift", on_delete=models.CASCADE, related_name="assignments"
     )
     assigned_at = models.DateTimeField(auto_now_add=True)
-    role = models.CharField(max_length=100, default="Staff", choices=ROLE_CHOICES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=CONFIRMED)
+    role = models.CharField(
+        max_length=100, default="Staff", choices=ROLE_CHOICES
+    )
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=CONFIRMED
+    )
     attendance_status = models.CharField(
         max_length=20,
         choices=ATTENDANCE_STATUS_CHOICES,
         null=True,
         blank=True,
-        help_text="Post-shift attendance record"
+        help_text="Post-shift attendance record",
     )
     completion_latitude = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True
@@ -338,7 +360,10 @@ class ShiftAssignment(TimestampedModel):
         super().clean()
 
         # Ensure worker's profile has an agency
-        if not hasattr(self.worker, "profile") or not self.worker.profile.agency:
+        if (
+            not hasattr(self.worker, "profile")
+            or not self.worker.profile.agency
+        ):
             raise ValidationError(
                 "Worker must be associated with an agency to be assigned to a shift."
             )
@@ -387,7 +412,9 @@ class StaffPerformance(models.Model):
     performance_rating = models.DecimalField(
         max_digits=3, decimal_places=1, help_text="Rating out of 5"
     )
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="Average")
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default="Average"
+    )
     comments = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -397,7 +424,9 @@ class StaffPerformance(models.Model):
         verbose_name_plural = "Staff Performances"
 
     def __str__(self):
-        return f"Performance of {self.worker.username} for Shift {self.shift.id}"
+        return (
+            f"Performance of {self.worker.username} for Shift {self.shift.id}"
+        )
 
     def clean(self):
         """
@@ -413,4 +442,6 @@ class StaffPerformance(models.Model):
 
         # Validate performance_rating
         if not (0 <= self.performance_rating <= 5):
-            raise ValidationError("Performance rating must be between 0 and 5.")
+            raise ValidationError(
+                "Performance rating must be between 0 and 5."
+            )

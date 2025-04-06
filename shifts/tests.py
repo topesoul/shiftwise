@@ -31,9 +31,7 @@ class ShiftListViewTestCase(TestCase):
         self.staff_group = Group.objects.create(name="Agency Staff")
 
         # Create a manager user
-        self.manager_user = User.objects.create_user(
-            username="manager", password="pass123"
-        )
+        self.manager_user = User.objects.create_user(username="manager", password="pass123")
         self.manager_user.groups.add(self.manager_group)
         Profile.objects.create(user=self.manager_user, agency=self.agency)
 
@@ -131,7 +129,5 @@ class ShiftListViewTestCase(TestCase):
         from .utils import haversine_distance
 
         # Coordinates for London and Paris
-        distance = haversine_distance(
-            51.5074, -0.1278, 48.8566, 2.3522, unit="kilometers"
-        )
+        distance = haversine_distance(51.5074, -0.1278, 48.8566, 2.3522, unit="kilometers")
         self.assertAlmostEqual(distance, 343.5, delta=1.0)

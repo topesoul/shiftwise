@@ -4,10 +4,11 @@ import hashlib
 import logging
 import uuid
 
+from encrypted_model_fields.fields import EncryptedCharField
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
-from encrypted_model_fields.fields import EncryptedCharField
 
 from core.constants import AGENCY_TYPE_CHOICES, ROLE_CHOICES
 from core.utils import create_unique_filename, generate_unique_code
@@ -16,7 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 class User(AbstractUser):
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="staff")
+    role = models.CharField(
+        max_length=20, choices=ROLE_CHOICES, default="staff"
+    )
     email = models.EmailField(max_length=254, unique=True)
 
     def __str__(self):
@@ -46,14 +49,18 @@ class Agency(models.Model):
         null=True,
         blank=True,
     )
-    stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)
+    stripe_customer_id = models.CharField(
+        max_length=255, blank=True, null=True
+    )
 
     # Address Fields
     address_line1 = models.CharField(max_length=255, blank=True, null=True)
     address_line2 = models.CharField(max_length=255, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
     county = models.CharField(max_length=100, blank=True, null=True)
-    country = models.CharField(max_length=100, default="UK", blank=True, null=True)
+    country = models.CharField(
+        max_length=100, default="UK", blank=True, null=True
+    )
     postcode = models.CharField(max_length=20, blank=True, null=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
@@ -92,8 +99,12 @@ class Profile(models.Model):
     Represents a user's profile with additional information.
     """
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-    agency = models.ForeignKey(Agency, on_delete=models.SET_NULL, null=True, blank=True)
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="profile"
+    )
+    agency = models.ForeignKey(
+        Agency, on_delete=models.SET_NULL, null=True, blank=True
+    )
     travel_radius = models.FloatField(default=0.0)
     profile_picture = models.ImageField(
         upload_to=create_unique_filename, null=True, blank=True
@@ -110,7 +121,9 @@ class Profile(models.Model):
     address_line2 = models.CharField(max_length=255, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
     county = models.CharField(max_length=100, blank=True, null=True)
-    country = models.CharField(max_length=100, default="UK", blank=True, null=True)
+    country = models.CharField(
+        max_length=100, default="UK", blank=True, null=True
+    )
     postcode = models.CharField(max_length=20, blank=True, null=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
@@ -151,7 +164,9 @@ class Profile(models.Model):
             self.view_count_reset_date = timezone.now().date().replace(
                 day=1
             ) + timezone.timedelta(days=32)
-            self.view_count_reset_date = self.view_count_reset_date.replace(day=1)
+            self.view_count_reset_date = self.view_count_reset_date.replace(
+                day=1
+            )
             self.save()
 
     def __str__(self):
@@ -178,7 +193,10 @@ class Profile(models.Model):
                 "staff_performance",
                 "custom_integrations",
             ]
-        if self.is_agency_subscription_active and self.agency.subscription.plan:
+        if (
+            self.is_agency_subscription_active
+            and self.agency.subscription.plan
+        ):
             return self.agency.subscription.plan.get_features_list()
         return []
 
@@ -195,7 +213,10 @@ class Profile(models.Model):
     def save(self, *args, **kwargs):
         try:
             this = Profile.objects.get(id=self.id)
-            if this.profile_picture and self.profile_picture != this.profile_picture:
+            if (
+                this.profile_picture
+                and self.profile_picture != this.profile_picture
+            ):
                 # Delete the old profile picture from storage
                 this.profile_picture.delete(save=False)
                 logger.info(
@@ -220,7 +241,9 @@ class Invitation(models.Model):
     invited_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
-    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, null=True, blank=True)
+    agency = models.ForeignKey(
+        Agency, on_delete=models.CASCADE, null=True, blank=True
+    )
 
     def __str__(self):
         agency_name = self.agency.name if self.agency else "No Agency"

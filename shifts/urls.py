@@ -70,9 +70,7 @@ urlpatterns = [
     # Shift Booking and Unbooking URLs
     # ---------------------------
     path("shift/<int:shift_id>/book/", ShiftBookView.as_view(), name="book_shift"),
-    path(
-        "shift/<int:shift_id>/unbook/", ShiftUnbookView.as_view(), name="unbook_shift"
-    ),
+    path("shift/<int:shift_id>/unbook/", ShiftUnbookView.as_view(), name="unbook_shift"),
     # ---------------------------
     # Timesheet and Reporting URLs
     # ---------------------------
@@ -122,9 +120,7 @@ urlpatterns = [
     # ---------------------------
     # Worker Assignment URLs
     # ---------------------------
-    path(
-        "shift/<int:shift_id>/assign/", AssignWorkerView.as_view(), name="assign_worker"
-    ),
+    path("shift/<int:shift_id>/assign/", AssignWorkerView.as_view(), name="assign_worker"),
     path(
         "shift/<int:shift_id>/unassign/<int:assignment_id>/",
         UnassignWorkerView.as_view(),
