@@ -167,7 +167,8 @@ class MFAVerifyView(FormView):
         backend = self.request.session.get("auth_backend")
         user = get_object_or_404(User, id=user_id)
         totp = pyotp.TOTP(user.profile.totp_secret)
-        if totp.verify(totp_code):
+        # Allow for time skew by checking current and adjacent windows
+        if totp.verify(totp_code, valid_window=1):
             login(self.request, user, backend=backend)
             messages.success(
                 self.request, f"Welcome back, {user.get_full_name()}!"
@@ -301,7 +302,7 @@ class ActivateTOTPView(LoginRequiredMixin, View):
             )
             return redirect("accounts:activate_totp")
         totp = pyotp.TOTP(totp_secret, interval=settings.MFA_TOTP_PERIOD)
-        if totp.verify(code):
+        if totp.verify(code, valid_window=1):
             request.user.profile.totp_secret = totp_secret
             request.user.profile.save()
             recovery_codes = request.user.profile.generate_recovery_codes()
