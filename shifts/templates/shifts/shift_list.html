@@ -13,7 +13,7 @@
 <div class="container">
     <h2 class="mt-4">Available Shifts</h2>
 
-    {% if user.is_superuser or user|has_feature:"shift_management" and user|has_group:"Agency Managers,Agency Owners" %}
+    {% if user.is_superuser or user|has_feature:"shift_management" and user.groups.all.count > 0 %}
         <div class="mb-3 text-right">
             <a href="{% url 'shifts:shift_create' %}" class="btn btn-success" id="create-shift-button">
                 <i class="fas fa-plus-circle"></i> Create New Shift
