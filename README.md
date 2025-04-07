@@ -413,7 +413,7 @@ ShiftWise offers a comprehensive suite of features tailored to the needs of care
 </div>
 
 - **Email Notifications:**
-  - Users receive email notifications for shift assignments, updates, and reminders for upcoming shifts.
+  - Users receive email notifications for shift assignments and updates for general activities like staff invites to the platform.
 
 - **UI Feedback Messages:**
   - Real-time UI feedback messages with consistent styling inform users about actions such as creating, updating, or deleting shifts.
@@ -532,7 +532,7 @@ ShiftWise leverages a combination of modern technologies to deliver a robust and
 - **Google Places API:** Provides address autocomplete and suggestions for enhanced user experience.
 - **OpenStreetMap:** Used for capturing geo location data when completing shifts.
 - **Signature Pad (JavaScript):** Enables digital signature capture for shift completion.
-- **SendGrid API:** Powers all transactional emails including notifications for shift assignments, updates, and reminders.
+- **SendGrid API:** Powers all transactional emails including notifications for shift assignments and updates.
 
 ### DevOps
 
