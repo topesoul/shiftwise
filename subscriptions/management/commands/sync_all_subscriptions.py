@@ -26,9 +26,19 @@ class Command(BaseCommand):
             action="store_true",
             help="Force update all subscriptions, not just potentially outdated ones",
         )
+        parser.add_argument(
+            "--check-expired",
+            action="store_true",
+            help="Check and mark expired subscriptions without contacting Stripe",
+        )
 
     def handle(self, *args, **options):
         force = options.get("force", False)
+        check_expired = options.get("check_expired", False)
+
+        if check_expired:
+            self.check_expired_subscriptions()
+        
         agencies = Agency.objects.filter(stripe_customer_id__isnull=False)
 
         self.stdout.write(f"Checking {agencies.count()} agencies with Stripe customer IDs")
@@ -149,7 +159,41 @@ class Command(BaseCommand):
                 )
                 error_count += 1
 
+        # Check for expired subscriptions again
+        expired_count = self.check_expired_subscriptions()
+
         self.stdout.write(f"\nSummary:")
         self.stdout.write(f"Agencies processed: {agencies.count()}")
         self.stdout.write(f"Subscriptions synced: {synced_count}")
+        self.stdout.write(f"Expired subscriptions updated: {expired_count}")
         self.stdout.write(f"Errors encountered: {error_count}")
+    
+    def check_expired_subscriptions(self):
+        """
+        Check for subscriptions that have passed their end date and mark them as inactive
+        """
+        now = timezone.now()
+        expired_subscriptions = Subscription.objects.filter(
+            is_active=True, 
+            current_period_end__lt=now
+        )
+        
+        count = expired_subscriptions.count()
+        if count > 0:
+            self.stdout.write(f"Found {count} expired subscriptions")
+            
+            for subscription in expired_subscriptions:
+                subscription.is_active = False
+                subscription.is_expired = True
+                subscription.status = "canceled"
+                subscription.save()
+                
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"Marked expired subscription for {subscription.agency.name} as inactive"
+                    )
+                )
+        else:
+            self.stdout.write("No expired subscriptions found")
+            
+        return count
