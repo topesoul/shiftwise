@@ -277,6 +277,9 @@ class SubscribeView(LoginRequiredMixin, View):
 
         # Create checkout session
         try:
+            logger.info(
+                f"Creating checkout session for agency: {agency.name}, customer: {customer.id}, plan: {plan.name}, price_id: {plan.stripe_price_id}"
+            )
             checkout_session = stripe.checkout.Session.create(
                 customer=customer.id,
                 payment_method_types=["card"],
@@ -297,12 +300,24 @@ class SubscribeView(LoginRequiredMixin, View):
             )
             return redirect(checkout_session.url)
         except stripe.error.StripeError as e:
-            messages.error(request, "There was an error creating the checkout session.")
-            logger.exception(f"Stripe error while creating checkout session: {e}")
+            error_msg = str(e)
+            logger.exception(
+                f"Stripe error while creating checkout session for {agency.name}, user: {user.username}, plan: {plan.name}: {error_msg}"
+            )
+            messages.error(
+                request, 
+                f"There was an error creating the checkout session: {error_msg[:100]}{'...' if len(error_msg) > 100 else ''}"
+            )
             return redirect("subscriptions:subscription_home")
         except Exception as e:
-            messages.error(request, "An unexpected error occurred. Please try again.")
-            logger.exception(f"Unexpected error while creating checkout session: {e}")
+            error_msg = str(e)
+            logger.exception(
+                f"Unexpected error while creating checkout session for {agency.name}, user: {user.username}, plan: {plan.name}: {error_msg}"
+            )
+            messages.error(
+                request, 
+                f"An unexpected error occurred: {error_msg[:100]}{'...' if len(error_msg) > 100 else ''}"
+            )
             return redirect("subscriptions:subscription_home")
 
 
