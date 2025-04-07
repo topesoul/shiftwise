@@ -370,13 +370,23 @@ class ShiftCreateView(
         return kwargs
 
     def form_valid(self, form):
-        shift = form.save(commit=False)
+        # Handle agency assignment here based on user type
         if self.request.user.is_superuser:
             agency = form.cleaned_data.get("agency")
-            shift.agency = agency
+            if not agency:
+                messages.error(
+                    self.request,
+                    "Please select an agency for this shift."
+                )
+                return self.form_invalid(form)
         else:
             agency = self.request.user.profile.agency
-            shift.agency = agency
+            if not agency:
+                messages.error(
+                    self.request,
+                    "You are not associated with any agency. Please update your profile first."
+                )
+                return redirect("accounts:profile")
 
             # Verify shift limit compliance
             subscription = agency.subscription
@@ -397,7 +407,11 @@ class ShiftCreateView(
                         f"Agency '{agency.name}' has reached the shift limit for the month."
                     )
                     return redirect("subscriptions:upgrade_subscription")
-
+        
+        # Save the form with the agency explicitly set
+        shift = form.save(commit=False)
+        shift.agency = agency
+        
         # Generate unique shift code if needed
         if not shift.shift_code:
             shift.shift_code = generate_shift_code()
