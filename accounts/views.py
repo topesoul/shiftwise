@@ -642,73 +642,149 @@ class InviteStaffView(
 class AcceptInvitationView(View):
     """Processes staff invitation acceptances and account creation."""
 
-    def get(self, request, token, *args, **kwargs):
-        invitation = get_object_or_404(Invitation, token=token, is_active=True)
-        if invitation.is_expired():
-            messages.error(request, "This invitation has expired.")
-            logger.warning(f"Expired invitation accessed: {invitation.email}")
-            return redirect("accounts:login_view")
-        form = AcceptInvitationForm(initial={"email": invitation.email})
-        return render(
-            request, "accounts/accept_invitation.html", {"form": form}
-        )
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Override dispatch to handle exceptions gracefully
+        """
+        try:
+            return super().dispatch(request, *args, **kwargs)
+        except Exception as e:
+            logger.exception(f"Error in AcceptInvitationView: {e}")
+            messages.error(
+                request,
+                "An error occurred while processing your invitation. Please contact support."
+            )
+            return redirect("home:home")
 
-    def post(self, request, token, *args, **kwargs):
-        invitation = get_object_or_404(Invitation, token=token, is_active=True)
-        if invitation.is_expired():
-            messages.error(request, "This invitation has expired.")
-            logger.warning(
-                f"Expired invitation attempted to accept: {invitation.email}"
-            )
-            return redirect("accounts:login_view")
-        form = AcceptInvitationForm(
-            request.POST,
-            initial={"email": invitation.email},
-            invitation=invitation,
-            request=request,
-        )
-        if form.is_valid():
-            user = form.save()
-            agency_staff_group, _ = Group.objects.get_or_create(
-                name="Agency Staff"
-            )
-            user.groups.add(agency_staff_group)
-            logger.info(
-                f"User {user.username} assigned to 'Agency Staff' group."
-            )
-            if invitation.agency:
-                user.profile.agency = invitation.agency
-                user.profile.save()
-                logger.debug(
-                    f"User {user.username} linked to agency {invitation.agency.name}."
-                )
-            else:
-                logger.debug(f"User {user.username} not linked to any agency.")
-            invitation.is_active = False
-            invitation.accepted_at = timezone.now()
-            invitation.save()
-            logger.info(
-                f"Invitation {invitation.email} marked as accepted by {user.username}."
-            )
-            backend = self.get_user_backend(user)
-            login(request, user, backend=backend)
-            messages.success(
-                request, "Your account has been created successfully."
-            )
-            logger.info(
-                f"User {user.username} logged in after accepting invitation."
-            )
-            return redirect("accounts:staff_dashboard")
-        else:
-            if form.errors:
-                logger.warning(f"Accept invitation form errors: {form.errors}")
-            messages.error(request, "Please correct the errors below.")
-            logger.warning(
-                f"Invalid acceptance form submitted by {invitation.email}"
-            )
+    def get(self, request, token, *args, **kwargs):
+        try:
+            # Validate token format before querying database
+            try:
+                uuid_token = uuid.UUID(str(token))
+            except ValueError:
+                messages.error(request, "Invalid invitation token format.")
+                logger.warning(f"Invalid invitation token format: {token}")
+                return redirect("accounts:login_view")
+
+            # Find the invitation
+            invitation = get_object_or_404(Invitation, token=uuid_token, is_active=True)
+            
+            if invitation.is_expired():
+                messages.error(request, "This invitation has expired.")
+                logger.warning(f"Expired invitation accessed: {invitation.email}")
+                return redirect("accounts:login_view")
+                
+            form = AcceptInvitationForm(initial={"email": invitation.email})
             return render(
                 request, "accounts/accept_invitation.html", {"form": form}
             )
+        except Exception as e:
+            logger.exception(f"Error in invitation get view: {e}")
+            messages.error(
+                request, 
+                "An error occurred while loading the invitation. Please contact support."
+            )
+            return redirect("home:home")
+
+    def post(self, request, token, *args, **kwargs):
+        try:
+            # Validate token format before querying database
+            try:
+                uuid_token = uuid.UUID(str(token))
+            except ValueError:
+                messages.error(request, "Invalid invitation token format.")
+                logger.warning(f"Invalid invitation token format in post: {token}")
+                return redirect("accounts:login_view")
+                
+            # Find the invitation
+            invitation = get_object_or_404(Invitation, token=uuid_token, is_active=True)
+            
+            if invitation.is_expired():
+                messages.error(request, "This invitation has expired.")
+                logger.warning(
+                    f"Expired invitation attempted to accept: {invitation.email}"
+                )
+                return redirect("accounts:login_view")
+                
+            form = AcceptInvitationForm(
+                request.POST,
+                initial={"email": invitation.email},
+                invitation=invitation,
+                request=request,
+            )
+            
+            if form.is_valid():
+                try:
+                    with transaction.atomic():
+                        # Create user in a transaction to ensure all related operations succeed
+                        user = form.save(commit=False)
+                        user.save()
+                        
+                        # Ensure profile exists
+                        profile, created = Profile.objects.get_or_create(user=user)
+                        
+                        # Add to Agency Staff group
+                        agency_staff_group, _ = Group.objects.get_or_create(
+                            name="Agency Staff"
+                        )
+                        user.groups.add(agency_staff_group)
+                        logger.info(
+                            f"User {user.username} assigned to 'Agency Staff' group."
+                        )
+                        
+                        # Link to agency if available
+                        if invitation.agency:
+                            profile.agency = invitation.agency
+                            profile.save()
+                            logger.debug(
+                                f"User {user.username} linked to agency {invitation.agency.name}."
+                            )
+                        else:
+                            logger.debug(f"User {user.username} not linked to any agency.")
+                            
+                        # Mark invitation as accepted
+                        invitation.is_active = False
+                        invitation.accepted_at = timezone.now()
+                        invitation.save()
+                        logger.info(
+                            f"Invitation {invitation.email} marked as accepted by {user.username}."
+                        )
+                        
+                        # Login the user
+                        backend = self.get_user_backend(user)
+                        login(request, user, backend=backend)
+                        messages.success(
+                            request, "Your account has been created successfully."
+                        )
+                        logger.info(
+                            f"User {user.username} logged in after accepting invitation."
+                        )
+                        
+                        return redirect("accounts:staff_dashboard")
+                except Exception as e:
+                    logger.exception(f"Transaction error in AcceptInvitationView: {e}")
+                    messages.error(
+                        request, 
+                        "An error occurred while creating your account. Please contact support."
+                    )
+                    return redirect("home:home")
+            else:
+                if form.errors:
+                    logger.warning(f"Accept invitation form errors: {form.errors}")
+                messages.error(request, "Please correct the errors below.")
+                logger.warning(
+                    f"Invalid acceptance form submitted by {invitation.email}"
+                )
+                return render(
+                    request, "accounts/accept_invitation.html", {"form": form}
+                )
+        except Exception as e:
+            logger.exception(f"Error in invitation post view: {e}")
+            messages.error(
+                request, 
+                "An error occurred while processing your invitation. Please contact support."
+            )
+            return redirect("home:home")
 
     def get_user_backend(self, user):
         backends = get_backends()
