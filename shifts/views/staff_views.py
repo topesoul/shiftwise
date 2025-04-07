@@ -32,10 +32,15 @@ class StaffListView(
 ):
     """
     Displays a list of staff members.
-    Only accessible to users with 'custom_integrations' feature.
+    Accessible to users with 'custom_integrations' feature or to agency owners with 'shift_management' feature.
     """
 
-    required_features = ["custom_integrations"]
+    def get_required_features(self):
+        if self.request.user.groups.filter(name="Agency Owners").exists():
+            return ["shift_management"]
+        return ["custom_integrations"]
+    
+    required_features = [] 
     model = User
     template_name = "shifts/staff_list.html"
     context_object_name = "staff_members"
@@ -178,9 +183,15 @@ class StaffCreateView(
     """
     Allows agency managers and superusers to add new staff members to their agency.
     Superusers can add staff to any agency.
+    Agency owners need the shift_management feature instead of custom_integrations.
     """
 
-    required_features = ["custom_integrations"]
+    def get_required_features(self):
+        if self.request.user.groups.filter(name="Agency Owners").exists():
+            return ["shift_management"]
+        return ["custom_integrations"]
+    
+    required_features = []
     model = User
     form_class = StaffCreationForm
     template_name = "shifts/add_staff.html"
@@ -277,9 +288,15 @@ class StaffUpdateView(
     """
     Allows agency managers or superusers to edit staff details.
     Superusers can edit any staff member regardless of agency association.
+    Agency owners need the shift_management feature instead of custom_integrations.
     """
 
-    required_features = ["custom_integrations"]
+    def get_required_features(self):
+        if self.request.user.groups.filter(name="Agency Owners").exists():
+            return ["shift_management"]
+        return ["custom_integrations"]
+    
+    required_features = []
     model = User
     form_class = StaffUpdateForm
     template_name = "shifts/edit_staff.html"
@@ -357,9 +374,15 @@ class StaffDeleteView(
     """
     Allows agency managers or superusers to deactivate a staff member.
     Superusers can deactivate any staff member regardless of agency association.
+    Agency owners need the shift_management feature instead of custom_integrations.
     """
 
-    required_features = ["custom_integrations"]
+    def get_required_features(self):
+        if self.request.user.groups.filter(name="Agency Owners").exists():
+            return ["shift_management"]
+        return ["custom_integrations"]
+    
+    required_features = []
     model = User
     template_name = "shifts/delete_staff.html"
     success_url = reverse_lazy("shifts:staff_list")
