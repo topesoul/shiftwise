@@ -990,6 +990,13 @@ class UserUpdateView(
             return User.objects.filter(
                 profile__agency=self.request.user.profile.agency
             )
+            
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # For agency owners, limit group choices to Agency Staff and Agency Managers
+        if not self.request.user.is_superuser and self.request.user.groups.filter(name="Agency Owners").exists():
+            form.fields['group'].queryset = Group.objects.filter(name__in=["Agency Staff", "Agency Managers"])
+        return form
 
     def form_valid(self, form):
         user = form.save()
