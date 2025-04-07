@@ -41,77 +41,129 @@ class StaffListView(
     context_object_name = "staff_members"
     paginate_by = 20
 
-    def get_queryset(self):
-        user = self.request.user
-        agency = user.profile.agency if not user.is_superuser else None
-        search_query = self.request.GET.get("search", "")
-        status_filter = self.request.GET.get("status", "")
-        date_from = self.request.GET.get("date_from", "")
-        date_to = self.request.GET.get("date_to", "")
-
-        # Base queryset filtering Agency Staff and active users
-        staff_members = User.objects.filter(groups__name="Agency Staff", is_active=True)
-
-        if not user.is_superuser and agency:
-            staff_members = staff_members.filter(profile__agency=agency)
-
-        # Annotate with shift statistics
-        staff_members = staff_members.annotate(
-            total_shifts=Count("shift_assignments"),
-            completed_shifts=Count(
-                "shift_assignments",
-                filter=Q(shift_assignments__shift__status=Shift.STATUS_COMPLETED),
-            ),
-            pending_shifts=Count(
-                "shift_assignments",
-                filter=Q(shift_assignments__shift__status=Shift.STATUS_PENDING),
-            ),
-            total_hours=Sum(
-                "shift_assignments__shift__duration",
-                filter=Q(shift_assignments__shift__status=Shift.STATUS_COMPLETED),
-            ),
-            total_pay=Sum(
-                ExpressionWrapper(
-                    F("shift_assignments__shift__duration")
-                    * F("shift_assignments__shift__hourly_rate"),
-                    output_field=FloatField(),
-                ),
-                filter=Q(shift_assignments__shift__status=Shift.STATUS_COMPLETED),
-            ),
-        )
-
-        # Apply search filter
-        if search_query:
-            staff_members = staff_members.filter(
-                Q(username__icontains=search_query)
-                | Q(first_name__icontains=search_query)
-                | Q(last_name__icontains=search_query)
-                | Q(email__icontains=search_query)
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Override dispatch to handle exceptions gracefully
+        """
+        try:
+            return super().dispatch(request, *args, **kwargs)
+        except Exception as e:
+            logger.exception(f"Error in StaffListView: {e}")
+            messages.error(
+                request,
+                "An error occurred while loading the staff list. Our team has been notified."
             )
+            return redirect("home:home")
 
-        # Apply shift status filter
-        if status_filter:
-            staff_members = staff_members.filter(
-                shift_assignments__shift__status=status_filter,
-            ).distinct()
+    def get_queryset(self):
+        try:
+            user = self.request.user
+            
+            # Safely get agency with error handling
+            agency = None
+            if not user.is_superuser:
+                try:
+                    if hasattr(user, 'profile') and user.profile and hasattr(user.profile, 'agency'):
+                        agency = user.profile.agency
+                except Exception as e:
+                    logger.warning(f"Error getting user agency for {user.username}: {e}")
+            
+            search_query = self.request.GET.get("search", "")
+            status_filter = self.request.GET.get("status", "")
+            date_from = self.request.GET.get("date_from", "")
+            date_to = self.request.GET.get("date_to", "")
 
-        # Apply date range filter
-        if date_from and date_to:
-            staff_members = staff_members.filter(
-                shift_assignments__shift__shift_date__range=[date_from, date_to]
-            ).distinct()
+            # Base queryset filtering Agency Staff and active users
+            staff_members = User.objects.filter(groups__name="Agency Staff", is_active=True)
 
-        # Order the queryset by username
-        staff_members = staff_members.order_by("username")
+            if not user.is_superuser and agency:
+                staff_members = staff_members.filter(profile__agency=agency)
 
-        return staff_members
+            # Safely annotate with shift statistics
+            try:
+                staff_members = staff_members.annotate(
+                    total_shifts=Count("shift_assignments", distinct=True),
+                    completed_shifts=Count(
+                        "shift_assignments",
+                        filter=Q(shift_assignments__shift__status=Shift.STATUS_COMPLETED),
+                        distinct=True,
+                    ),
+                    pending_shifts=Count(
+                        "shift_assignments",
+                        filter=Q(shift_assignments__shift__status=Shift.STATUS_PENDING),
+                        distinct=True,
+                    ),
+                    total_hours=Sum(
+                        "shift_assignments__shift__duration",
+                        filter=Q(shift_assignments__shift__status=Shift.STATUS_COMPLETED),
+                    ),
+                    total_pay=Sum(
+                        ExpressionWrapper(
+                            F("shift_assignments__shift__duration")
+                            * F("shift_assignments__shift__hourly_rate"),
+                            output_field=FloatField(),
+                        ),
+                        filter=Q(shift_assignments__shift__status=Shift.STATUS_COMPLETED),
+                    ),
+                )
+            except Exception as e:
+                logger.warning(f"Error during staff annotation: {e}")
+                # Fallback to simpler query if annotation fails
+                staff_members = User.objects.filter(groups__name="Agency Staff", is_active=True)
+                if not user.is_superuser and agency:
+                    staff_members = staff_members.filter(profile__agency=agency)
+
+            # Apply search filter
+            if search_query:
+                staff_members = staff_members.filter(
+                    Q(username__icontains=search_query)
+                    | Q(first_name__icontains=search_query)
+                    | Q(last_name__icontains=search_query)
+                    | Q(email__icontains=search_query)
+                )
+
+            # Apply shift status filter
+            if status_filter:
+                try:
+                    staff_members = staff_members.filter(
+                        shift_assignments__shift__status=status_filter,
+                    ).distinct()
+                except Exception as e:
+                    logger.warning(f"Error during status filtering: {e}")
+
+            # Apply date range filter
+            if date_from and date_to:
+                try:
+                    staff_members = staff_members.filter(
+                        shift_assignments__shift__shift_date__range=[date_from, date_to]
+                    ).distinct()
+                except Exception as e:
+                    logger.warning(f"Error during date filtering: {e}")
+
+            # Order the queryset by username
+            staff_members = staff_members.order_by("username")
+
+            return staff_members
+        except Exception as e:
+            logger.exception(f"Error in get_queryset for StaffListView: {e}")
+            # Return an empty queryset in case of error
+            return User.objects.none()
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["search_query"] = self.request.GET.get("search", "")
-        context["status_filter"] = self.request.GET.get("status", "")
-        context["date_from"] = self.request.GET.get("date_from", "")
-        context["date_to"] = self.request.GET.get("date_to", "")
+        context = {}
+        try:
+            context = super().get_context_data(**kwargs)
+            context["search_query"] = self.request.GET.get("search", "")
+            context["status_filter"] = self.request.GET.get("status", "")
+            context["date_from"] = self.request.GET.get("date_from", "")
+            context["date_to"] = self.request.GET.get("date_to", "")
+        except Exception as e:
+            logger.exception(f"Error in get_context_data for StaffListView: {e}")
+            context["staff_members"] = []
+            messages.error(
+                self.request, 
+                "There was an error loading the staff list. Please try again later."
+            )
         return context
 
 
