@@ -173,8 +173,16 @@ class FeatureRequiredMixin(UserPassesTestMixin):
 
     required_features = []  # List of features required to access the view
 
+    def get_required_features(self):
+        """
+        Return the list of required features. Override this method to dynamically
+        determine required features based on the user or other conditions.
+        """
+        return self.required_features
+
     def test_func(self):
-        if not self.required_features:
+        required_features = self.get_required_features()
+        if not required_features:
             return True  # No feature required
         user = self.request.user
         if user.is_superuser:
@@ -184,7 +192,7 @@ class FeatureRequiredMixin(UserPassesTestMixin):
         try:
             return all(
                 user.profile.has_feature(feature)
-                for feature in self.required_features
+                for feature in required_features
             )
         except AttributeError:
             logger.exception(
