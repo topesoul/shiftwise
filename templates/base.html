@@ -107,10 +107,45 @@
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Autocomplete initialization for address fields -->
+    <!-- CSRF Token Management -->
     <script>
     (function() {
-        // Ensure a single initialization
+        // Skip for non-authenticated users
+        if (!(document.querySelector('[data-user-id]') && 
+              document.querySelector('[data-user-id]').dataset.userId != '0')) {
+            return;
+        }
+            
+        let activityTimeout;
+        const REFRESH_INTERVAL = 5 * 60 * 1000;
+            
+        function refreshCSRFToken() {
+            fetch('/', { 
+                method: 'HEAD',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).catch(err => console.error('CSRF refresh error:', err));
+        }
+            
+        function setupTokenRefresh() {
+            refreshCSRFToken();
+            setInterval(refreshCSRFToken, REFRESH_INTERVAL);
+            
+            document.addEventListener('click', function() {
+                clearTimeout(activityTimeout);
+                activityTimeout = setTimeout(refreshCSRFToken, 1000);
+            });
+        }
+            
+        document.readyState === 'complete'
+            ? setupTokenRefresh()
+            : window.addEventListener('load', setupTokenRefresh);
+    })();
+    </script>
+    
+    <!-- Google Places integration -->
+    <script>
+    (function() {
         window.googleMapsInitialized = false;
 
         // Initialize Places Autocomplete when the Maps API is loaded
