@@ -385,16 +385,16 @@ class ShiftForm(AddressFormMixin, forms.ModelForm):
         shift = super().save(commit=False)
 
         # Set agency if not assigned
-        if not shift.agency and self.user and not self.user.is_superuser:
-            if hasattr(self.user, "profile") and hasattr(self.user.profile, "agency"):
+        if self.user and not self.user.is_superuser:
+            if hasattr(self.user, "profile") and hasattr(self.user.profile, "agency") and self.user.profile.agency:
                 shift.agency = self.user.profile.agency
             else:
                 raise ValidationError("User does not have an associated agency.")
-
+        
         # Generate shift code for new shifts
-        if not shift.shift_code:
+        if commit and not shift.shift_code and shift.agency:
             shift.shift_code = shift.generate_shift_code()
-
+            
         if commit:
             shift.save(skip_validation=True)
             self.save_m2m()
