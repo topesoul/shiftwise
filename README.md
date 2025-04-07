@@ -426,10 +426,10 @@ ShiftWise offers a comprehensive suite of features tailored to the needs of care
 </div>
 
 - **Analytics:**
-  - Visual representations of shift activities, attendance rates, and employee performance metrics.
+  - Visual representations of shift activities, attendance rates, and employee performance metrics I designed to provide actionable insights.
 
 - **Export Options:**
-  - Generate reports in CSV for offline analysis and record-keeping.
+  - Custom-built functionality to generate reports in CSV for offline analysis and record-keeping.
 
 ### Subscriptions
 
