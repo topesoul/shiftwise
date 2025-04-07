@@ -232,6 +232,11 @@ SESSION_COOKIE_AGE = 86400  # 24 hours in seconds
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True
 
+# Session and CSRF configuration to prevent token validation issues
+SESSION_COOKIE_NAME = 'swsessionid'
+CSRF_COOKIE_NAME = 'swcsrftoken'
+CSRF_COOKIE_AGE = 86400
+
 # Email settings
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_EMAIL_REQUIRED = True
