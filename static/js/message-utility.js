@@ -231,6 +231,15 @@ if (!window.messageUtilityInitialized) {
                     }
                 });
             }, 5000);
+            
+            // Prevent browser confirmation dialogs on links with data-no-confirm attribute
+            document.addEventListener('click', function(e) {
+                const target = e.target.closest('[data-no-confirm="true"]');
+                if (target) {
+                    // Ensure link navigates without browser confirmation
+                    e.stopPropagation();
+                }
+            });
         } catch (e) {
             console.error('messageUtility initialization error:', e);
         }
