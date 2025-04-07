@@ -13,24 +13,15 @@ logger = logging.getLogger(__name__)
 def handle_permission_error(request, message, redirect_url="home:home"):
     """
     Centralized error handler for permission-based redirects.
-    Provides user-friendly messages for common issues.
-
-    Args:
-        request: The request object
-        message: Error message to display
-        redirect_url: URL to redirect to
-
-    Returns:
-        HttpResponseRedirect
+    
+    Detects session timeouts and redirects to login with appropriate message.
     """
-    if "you do not have permission" in message.lower():
-        # Check if it's likely a session timeout
-        if request.user.is_anonymous and "login" not in redirect_url:
-            messages.info(
-                request, 
-                "Your session has expired. Please log in again to continue."
-            )
-            return redirect("accounts:login_view")
+    if "you do not have permission" in message.lower() and request.user.is_anonymous and "login" not in redirect_url:
+        messages.info(
+            request, 
+            "Your session has expired. Please log in again to continue."
+        )
+        return redirect("accounts:login_view")
     
     messages.error(request, message)
     return redirect(redirect_url)
