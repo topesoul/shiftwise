@@ -75,6 +75,9 @@
                         <td>
                             <a href="{% url 'shifts:staff_update' staff.pk %}" class="btn btn-sm btn-secondary">Edit</a>
                             <a href="{% url 'shifts:staff_delete' staff.pk %}" class="btn btn-sm btn-danger">Deactivate</a>
+                            {% if user|has_group:"Agency Owners" %}
+                            <a href="{% url 'accounts:update_user' staff.pk %}" class="btn btn-sm btn-info">Manage Role</a>
+                            {% endif %}
                         </td>
                     </tr>
                 {% empty %}
