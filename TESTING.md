@@ -474,6 +474,26 @@ All JavaScript files were validated using [JSHint](https://jshint.com/).
   </table>
 </div>
 
+### JavaScript Implementation Approach
+
+ShiftWise implements a hybrid JavaScript architecture, balancing performance needs with code maintainability:
+
+1. **Inline JavaScript Implementation**:
+   - Used for critical above-the-fold functionality requiring immediate execution
+   - Applied to template-specific functionality where code and markup are tightly coupled
+   - Implemented for small utility functions where HTTP request overhead would exceed script size
+
+2. **Performance Considerations**:
+   - Reduced HTTP requests for essential user interactions
+   - Eliminated render-blocking loads for critical path components
+   - Maintained context cohesion between markup and related behaviors
+
+3. **Code Quality Assurance**:
+   - All JavaScript validated through JSHint (see JavaScript Validation section)
+   - Consistent coding standards applied across both inline and external scripts
+   - Larger, reusable functionality properly modularized in external files
+   - Adherence to size limits for inline scripts to prevent document bloat
+
 ### Python Validation
 
 All Python files were validated using flake8, black, and isort to ensure adherence to PEP8 standards.
